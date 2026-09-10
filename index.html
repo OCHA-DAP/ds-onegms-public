@@ -197,9 +197,11 @@
 
   /* ---- progress charts (modal) ---- */
   .linkbtn.charts { font-size: .85rem; }
-  dialog#chart-modal { max-width: min(58rem, 94vw); width: 100%; border: 1px solid var(--line); border-radius: 4px;
+  dialog#chart-modal { max-width: min(58rem, 94vw); width: 100%; max-height: 90vh; overflow-x: hidden; overflow-y: auto;
+    border: 1px solid var(--line); border-radius: 4px;
     background: var(--ground); color: var(--ink); padding: 1.25rem 1.5rem 1.4rem; box-shadow: 0 8px 32px rgb(0 0 0 / .18);
     font-family: inherit; font-size: 14px; line-height: 1.5; }
+  dialog#chart-modal > * { max-width: 100%; }
   dialog#chart-modal::backdrop { background: rgb(0 0 0 / .35); }
   .modal-head { display: flex; align-items: baseline; gap: 1.5rem; margin-bottom: .3rem; flex-wrap: wrap; }
   .modal-head h2 { margin: 0; font-size: 1rem; font-weight: 500; }
@@ -216,19 +218,21 @@
   .sectorbars .lbl .n { display: block; font-size: .72rem; color: var(--muted); }
   .sectorbars .lbl .n .code { margin-right: .3rem; }
   .sbar { display: flex; align-items: center; gap: .75rem; min-width: 0; }
-  .sbar .strack { height: 9px; background: var(--track); border-radius: 2px; flex: none; }
+  .sbar .bars { flex: 1 1 auto; min-width: 0; }
+  .sbar .strack { height: 9px; background: var(--track); border-radius: 2px; }
   .sbar .sfill { height: 100%; border-radius: 2px; background: var(--ocha); }
   .sbar .sfill.full { background: var(--good); }
-  .sbar .figs { font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .sbar .figs { flex: none; width: 12rem; font-size: .76rem; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sbar .figs b { color: var(--ink); font-weight: 400; }
   .sectorbars .other { grid-column: 1 / -1; margin: -.2rem 0 .35rem; }
   .sectorbars .other > .linkbtn { font-size: .74rem; color: var(--muted); }
   .sectorbars .other > .linkbtn:hover { color: var(--ocha); text-decoration: none; }
   .sectorbars .other > .linkbtn .chev { width: .6rem; font-size: .75rem; }
   .sectorbars .other > .linkbtn[aria-expanded="true"] .chev { transform: rotate(90deg); color: var(--ocha); }
-  .sectorbars.sub { margin: .5rem 0 .3rem 1.4rem; padding: .5rem .75rem .5rem .9rem; border-left: 2px solid var(--line); gap: .45rem 1rem; }
+  .sectorbars.sub { margin: .5rem 0 .3rem .9rem; padding: .5rem 0 .5rem .9rem; border-left: 2px solid var(--line); gap: .45rem 1rem;
+                    grid-template-columns: minmax(10rem, 19rem) 1fr; }
   .sectorbars.sub .strack { height: 6px; }
-  @media (max-width: 40rem) { .sectorbars, .sectorbars.wide { grid-template-columns: 1fr; gap: .2rem; } .sectorbars .sbar { margin-bottom: .5rem; } }
+  @media (max-width: 46rem) { .sectorbars, .sectorbars.wide, .sectorbars.sub { grid-template-columns: 1fr; gap: .2rem; } .sectorbars .sbar { margin-bottom: .5rem; } .sbar .figs { width: auto; max-width: 55%; } }
 
   /* ---- footers ---- */
   .footnote { margin: 0; display: flex; flex-direction: column; gap: .3rem; font-size: .76rem; color: var(--muted);
@@ -1038,7 +1042,7 @@ function renderCharts() {
       const u = g.ind.unit, p = pctOf(g.ach.total, g.tgt.total);
       const unit = u && !PERSON_UNITS.has(u) && u !== "Percentage" ? " " + u.toLowerCase() : "";
       return `<div class="lbl"><span class="t" title="${esc(g.ind.name)}">${esc(g.ind.name)}</span><span class="n"><span class="code">${esc(g.ind.code || "")}</span>${esc(g.sector)} · ${g.reporting} of ${g.projects} ${plural(g.projects, "project")} reporting</span></div>
-        <div class="sbar"><div class="strack" style="width:100%" title="${esc(fmtVal(g.ach.total, u))} of ${esc(fmtVal(g.tgt.total, u))}"><div class="sfill${has(p) && p >= 1 ? " full" : ""}" style="width:${g.reporting && has(p) ? Math.min(100, Math.round(p * 100)) : 0}%"></div></div>
+        <div class="sbar"><div class="bars"><div class="strack" style="width:100%" title="${esc(fmtVal(g.ach.total, u))} of ${esc(fmtVal(g.tgt.total, u))}"><div class="sfill${has(p) && p >= 1 ? " full" : ""}" style="width:${g.reporting && has(p) ? Math.min(100, Math.round(p * 100)) : 0}%"></div></div></div>
         <span class="figs"><b>${g.reporting ? fmtVal(g.ach.total, u) : "—"}</b> of ${fmtVal(g.tgt.total, u)}${esc(unit)}${g.averaged ? " (avg)" : ""} · <b>${g.reporting ? pctText(p) : "—"}</b></span></div>`;
     }).join("");
     return;
@@ -1064,7 +1068,7 @@ function renderCharts() {
     const p = pctOf(g.ach, g.tgt);
     const w = maxTgt ? Math.max(2, Math.round(g.tgt / maxTgt * 100)) : 0;
     const bar = g.people
-      ? `<div class="strack" style="width:${w}%" title="${esc(fmtInt(g.ach))} reached of ${esc(fmtInt(g.tgt))} targeted"><div class="sfill${has(p) && p >= 1 ? " full" : ""}" style="width:${has(p) ? Math.min(100, Math.round(p * 100)) : 0}%"></div></div>
+      ? `<div class="bars"><div class="strack" style="width:${w}%" title="${esc(fmtInt(g.ach))} reached of ${esc(fmtInt(g.tgt))} targeted"><div class="sfill${has(p) && p >= 1 ? " full" : ""}" style="width:${has(p) ? Math.min(100, Math.round(p * 100)) : 0}%"></div></div></div>
          <span class="figs"><b>${fmtInt(g.ach)}</b> of ${fmtInt(g.tgt)} · <b>${pctText(p)}</b></span>`
       : `<span class="figs">No person-count indicators</span>`;
     return `<div class="lbl"><span class="t" title="${esc(g.sector)}">${esc(g.sector)}</span><span class="n">${g.reporting.size} of ${g.projects.size} ${plural(g.projects.size, "project")} reporting</span></div><div class="sbar">${bar}</div>${otherUnits(g)}`;
@@ -1090,7 +1094,7 @@ function otherUnits(g) {
     const u = x.ind.unit, p = pctOf(x.ach.total, x.tgt.total);
     const unit = u && u !== "Percentage" ? " " + u.toLowerCase() : "";
     return `<div class="lbl"><span class="t" title="${esc(x.ind.name)}">${esc(x.ind.name)}</span><span class="n"><span class="code">${esc(x.ind.code || "")}</span>${x.reporting} of ${x.projects} ${plural(x.projects, "project")} reporting</span></div>
-      <div class="sbar"><div class="strack" style="width:100%" title="${esc(fmtVal(x.ach.total, u))} of ${esc(fmtVal(x.tgt.total, u))}"><div class="sfill${has(p) && p >= 1 ? " full" : ""}" style="width:${x.reporting && has(p) ? Math.min(100, Math.round(p * 100)) : 0}%"></div></div>
+      <div class="sbar"><div class="bars"><div class="strack" style="width:100%" title="${esc(fmtVal(x.ach.total, u))} of ${esc(fmtVal(x.tgt.total, u))}"><div class="sfill${has(p) && p >= 1 ? " full" : ""}" style="width:${x.reporting && has(p) ? Math.min(100, Math.round(p * 100)) : 0}%"></div></div></div>
       <span class="figs"><b>${x.reporting ? fmtVal(x.ach.total, u) : "—"}</b> of ${fmtVal(x.tgt.total, u)}${esc(unit)}${x.averaged ? " (avg)" : ""} · <b>${x.reporting ? pctText(p) : "—"}</b></span></div>`;
   }).join("") + `</div></div>`;
 }
