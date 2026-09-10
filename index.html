@@ -1,0 +1,1010 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>US Allocation: OneGMS Reporting Explorer</title>
+<meta name="description" content="Live indicator reporting data for CBPF US Award (NSFT) projects, read straight from the public OneGMS API.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400&display=swap">
+<style>
+  /* Palette and type follow the sibling AIT HQ Data Hub app (HDX v2 tokens). */
+  :root {
+    --ocha:    #1a6bb5;
+    --ink:     #222222;
+    --muted:   #707070;
+    --line:    #e3e6ea;
+    --ground:  #ffffff;
+    --sub:     #fafbfc;
+    --band:    #f7f8fa;
+    --bleed:   1.25rem;
+    --track:   #eceff2;
+    --good:    #0f8a5f;
+    --warning: #f5a300;
+    --error:   #e3322d;
+    --mono: "Roboto Mono", ui-monospace, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ocha:    #6fa8dc;
+      --ink:     #e8eaed;
+      --muted:   #9aa3ab;
+      --line:    #2a3038;
+      --ground:  #15181c;
+      --sub:     #1b1f24;
+      --band:    #1c1f23;
+      --track:   #272d34;
+      --good:    #4fb489;
+      --warning: #f0b429;
+      --error:   #ec6a66;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0 1.5rem 6rem;
+    background: var(--ground); color: var(--ink);
+    font-family: Roboto, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 14px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 64rem; margin: 0 auto; display: flex; flex-direction: column; gap: 1.6rem; }
+  :focus-visible { outline: 2px solid var(--ocha); outline-offset: 2px; }
+  .sronly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+  /* ---- sticky chrome ---- */
+  header, .headline {
+    margin-inline: calc(-1 * var(--bleed)); padding-inline: var(--bleed);
+    background: var(--ground);
+  }
+  .notice {
+    position: sticky; top: 0; z-index: 30;
+    margin: 0 -1.5rem; padding: .45rem 1.5rem;
+    background: #fff3d6; color: #8a6d1f; border-bottom: 1px solid #f0dca8;
+    font-size: .78rem; font-weight: 500; text-align: center;
+  }
+  @media (prefers-color-scheme: dark) { .notice { background: #3a2f12; color: #e8c765; border-bottom-color: #55461c; } }
+  header { position: sticky; top: var(--notice-h, 0px); z-index: 20; padding-top: 1.1rem; }
+  header .titlerow { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap;
+                     padding-bottom: .7rem; border-bottom: 1px solid var(--line); }
+  h1 { margin: 0; font-size: 1.25rem; font-weight: 500; }
+  header .sub { font-size: .8rem; color: var(--muted); }
+  header .sub a { color: var(--ocha); text-decoration: none; }
+  header .sub a:hover { text-decoration: underline; }
+
+  .headline {
+    position: sticky; top: calc(var(--notice-h, 0px) + var(--header-h, 4rem)); z-index: 15;
+    background: var(--band); border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; flex-wrap: wrap; gap: .5rem 1.75rem;
+    padding-top: .55rem; padding-bottom: .55rem;
+  }
+  .headline .lede { font-size: .85rem; color: var(--muted); white-space: nowrap; }
+  .headline .lede b { color: var(--ink); font-weight: 400; font-variant-numeric: tabular-nums; }
+  .headline .seg { margin-left: auto; padding-bottom: 0; }
+  .contents { display: contents; }
+
+  /* ---- controls ---- */
+  .field { display: flex; flex-direction: column; gap: .2rem; }
+  .field > span:not(.checks) { font-size: .64rem; font-weight: 500; letter-spacing: .08em;
+                  text-transform: uppercase; color: var(--muted); }
+  select { font: inherit; font-size: .85rem; color: var(--ink); background: transparent;
+           border: 0; border-bottom: 1px solid var(--line); padding: .25rem 0; min-width: 12rem; }
+  select:focus { outline: 0; border-bottom-color: var(--ocha); }
+  select:disabled { opacity: .5; }
+  #country { min-width: 15rem; font-size: .95rem; }
+
+  .seg { display: flex; gap: 1rem; padding-bottom: .3rem; }
+  .seg button { font: inherit; font-size: .85rem; color: var(--muted); background: none;
+                border: 0; border-bottom: 2px solid transparent; padding: 0 0 .2rem; cursor: pointer; }
+  .seg button:hover:not(:disabled) { color: var(--ink); }
+  .seg button[aria-pressed="true"] { color: var(--ink); border-bottom-color: var(--ocha); }
+  .seg button:disabled { opacity: .35; cursor: default; }
+
+  .chk { display: inline-flex; align-items: center; gap: .35rem; font: inherit;
+         font-size: .85rem; color: var(--ink); cursor: pointer; white-space: nowrap; }
+  .chk input { accent-color: var(--ocha); width: .95rem; height: .95rem; cursor: pointer; margin: 0; }
+  .chk:has(input:disabled) { opacity: .45; cursor: default; }
+
+  .linkbtn { font: inherit; font-size: .78rem; color: var(--ocha); background: none;
+             border: 0; padding: 0; cursor: pointer; }
+  .linkbtn:hover { text-decoration: underline; }
+  .linkbtn:disabled { opacity: .4; cursor: default; text-decoration: none; }
+
+  .controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .8rem 1.75rem; }
+  .controls .checks { display: flex; gap: 1.25rem; align-items: center; padding-bottom: .3rem; flex-wrap: wrap; }
+  .exportbar { display: flex; gap: 1rem; align-items: center; }
+  .exportbar .cap { font-size: .64rem; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  input[type="search"] { font: inherit; font-size: .85rem; color: var(--ink); background: transparent;
+           border: 0; border-bottom: 1px solid var(--line); padding: .25rem 0; min-width: 14rem; }
+  input[type="search"]:focus { outline: 0; border-bottom-color: var(--ocha); }
+
+  /* ---- banners ---- */
+  .banner { border-left: 2px solid var(--warning); padding: .3rem .75rem; color: var(--muted); font-size: .85rem;
+            display: flex; gap: 1rem; align-items: baseline; flex-wrap: wrap; }
+  .banner.error { border-left-color: var(--error); }
+  .banner.info { border-left-color: var(--ocha); }
+  .banner[hidden] { display: none; }
+  .banner .linkbtn { font-size: .85rem; }
+
+  /* ---- sections ---- */
+  details.section > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: .5rem;
+    font-size: .68rem; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+    padding: .2rem 0 .7rem; }
+  details.section > summary::-webkit-details-marker { display: none; }
+  details.section > summary .chev { display: inline-block; transition: transform .12s ease; }
+  details.section[open] > summary .chev { transform: rotate(90deg); }
+  details.section > summary .count { color: var(--muted); font-weight: 400; letter-spacing: 0; text-transform: none; font-size: .78rem; }
+  .section-body { display: flex; flex-direction: column; gap: .75rem; }
+  .tablewrap { overflow-x: auto; }
+
+  /* ---- tables ---- */
+  table { border-collapse: collapse; width: 100%; }
+  table.main { table-layout: fixed; min-width: 52rem; }
+  thead th {
+    color: var(--muted); font-size: .68rem; font-weight: 500; letter-spacing: .08em;
+    text-transform: uppercase; text-align: left; padding: 0 .75rem .5rem;
+    white-space: nowrap; border-bottom: 1px solid var(--line);
+    cursor: pointer; user-select: none;
+  }
+  thead th:first-child { padding-left: 0; }
+  thead th.num { text-align: right; }
+  thead th:hover { color: var(--ink); }
+  thead th.nosort { cursor: default; }
+  thead th .arrow { display: none; font-size: .8em; margin-left: .2rem; }
+  thead th[aria-sort] .arrow { display: inline; color: var(--ocha); }
+
+  tbody td { padding: .55rem .75rem; border-bottom: 1px solid var(--line);
+             font-size: .85rem; vertical-align: top; }
+  tbody td:first-child { padding-left: 0; }
+  tbody td.num { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
+  tbody td.num.ink { color: var(--ink); }
+  td.mono, .mono { font-family: var(--mono); font-size: .76rem; }
+  .small { font-size: .76rem; color: var(--muted); }
+  .title { display: block; font-size: .78rem; color: var(--muted); margin-top: .1rem; }
+  .name { color: var(--ink); }
+  .code { font-family: var(--mono); font-size: .72rem; color: var(--muted); }
+
+  tr.row { cursor: pointer; }
+  tr.row:hover > td { background: var(--sub); }
+  .chev { display: inline-block; width: .7rem; color: var(--muted); font-size: .8rem;
+          transition: transform .12s ease; }
+  tr.row[aria-expanded="true"] .chev { transform: rotate(90deg); color: var(--ocha); }
+  tr.row[aria-expanded="true"] .name { font-weight: 500; }
+  tr.detail > td { padding: 0; background: var(--sub); border-bottom: 1px solid var(--line); }
+  .detail-inner { padding: .5rem 0 .9rem 1.4rem; overflow-x: auto; }
+  table.nested { width: max-content; min-width: 100%; font-size: .78rem; table-layout: auto; }
+  table.nested thead th { font-size: .62rem; padding-top: .3rem; cursor: default; }
+  table.nested tbody td { font-size: .78rem; padding: .4rem .75rem; }
+  table.nested tbody tr:last-child td { border-bottom: 0; }
+  .indname { max-width: 30rem; }
+  .empty { color: var(--muted); font-size: .85rem; padding: .6rem 0; }
+
+  /* ---- meters ---- */
+  .meter { display: flex; align-items: center; gap: .6rem; }
+  .track { flex: 1; min-width: 3rem; max-width: 7rem; height: 3px; background: var(--track); border-radius: 2px; }
+  .fill { height: 100%; border-radius: 2px; background: var(--ocha); }
+  .fill.full { background: var(--good); }
+  .pct { font-variant-numeric: tabular-nums; font-size: .8rem; min-width: 2.6rem; text-align: right; color: var(--muted); }
+  .pill { font-size: .66rem; color: var(--muted); background: var(--track); padding: .05rem .45rem; border-radius: 9px;
+          display: inline-block; white-space: nowrap; }
+  .pill.core { color: var(--ocha); background: transparent; border: 1px solid var(--line); }
+  .stat { display: inline-flex; align-items: center; gap: .4rem; font-size: .8rem; white-space: nowrap; }
+  .dot { width: .5rem; height: .5rem; border-radius: 50%; flex: none; background: var(--track); }
+  .dot.on { background: var(--ocha); }
+  .dot.good { background: var(--good); }
+  .dot.warning { background: var(--warning); }
+
+  /* ---- footers ---- */
+  .footnote { margin: 0; display: flex; flex-direction: column; gap: .3rem; font-size: .76rem; color: var(--muted);
+              border-top: 1px solid var(--line); padding-top: .8rem; }
+  .sources { border-top: 1px solid var(--line); padding-top: .9rem; margin-top: .5rem;
+             display: flex; flex-direction: column; gap: .45rem; }
+  .sources-title { font-size: .68rem; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .sources dl { margin: 0; display: grid; grid-template-columns: minmax(11rem, auto) 1fr; gap: .3rem 1rem; font-size: .74rem; color: var(--muted); }
+  .sources dt { font-weight: 500; color: var(--ink); }
+  .sources dd { margin: 0; }
+  .sources .endpoint { font-family: var(--mono); font-size: .68rem; color: var(--muted); overflow-wrap: anywhere; display: block; }
+  .sources .access { font-style: italic; font-size: .74rem; color: var(--muted); }
+  @media (max-width: 40rem) { .sources dl { grid-template-columns: 1fr; } }
+
+  @media print {
+    /* zero page margin removes the browser's own URL/date/title header and
+       footer; the body carries the margin instead */
+    @page { margin: 0; }
+    body { padding: 12mm 14mm; font-size: 11px; }
+    header, .headline, .notice { position: static; }
+    .notice { margin: 0 0 .6rem; padding: .3rem .6rem; }
+    .controls, .exportbar, .sources, .banner, thead th .arrow { display: none !important; }
+    .tablewrap { overflow: visible; }
+    table.main { min-width: 0; }
+    tr.row { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="notice" class="notice" role="note">Provisional tool. Figures are read live from the public OneGMS API and have not been fully validated against official reports. Targeted and reached figures are <b>not</b> deduplicated totals: people counted by several projects or under several indicators are counted each time. Check any figure before quoting it.</div>
+  <header>
+    <div class="titlerow">
+      <h1>US Allocation: OneGMS Reporting Explorer</h1>
+      <span class="sub">Live indicator reporting for US Award (NSFT) projects, read from the public <a href="https://cbpfapi.unocha.org/vo3/" target="_blank" rel="noopener">OneGMS API</a>.</span>
+    </div>
+  </header>
+
+  <div class="headline">
+    <select id="country" autocomplete="off" aria-label="Select country"></select>
+    <span id="stats" class="contents"></span>
+    <div class="seg" id="view" role="group" aria-label="View"></div>
+  </div>
+
+  <div class="controls">
+    <label class="field"><span>Sector</span>
+      <select id="sector" autocomplete="off"></select></label>
+    <label class="field"><span>Find</span>
+      <input type="search" id="q" placeholder="Partner, project code, indicator…" autocomplete="off"></label>
+    <div class="checks">
+      <label class="chk"><input type="checkbox" id="core"> Core indicators only</label>
+      <label class="chk"><input type="checkbox" id="split"> Show men / women / boys / girls</label>
+    </div>
+  </div>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <details class="section" open id="sec-projects">
+    <summary><span class="chev">›</span> Projects <span class="count" id="projects-count"></span></summary>
+    <div class="section-body">
+      <div class="tablewrap"><table class="main" id="projects-table"><thead><tr></tr></thead><tbody></tbody></table></div>
+    </div>
+  </details>
+
+  <details class="section" open id="sec-indicators" hidden>
+    <summary><span class="chev">›</span> Indicators, aggregated across projects <span class="count" id="indicators-count"></span></summary>
+    <div class="section-body">
+      <div class="tablewrap"><table class="main" id="indicators-table"><thead><tr></tr></thead><tbody></tbody></table></div>
+    </div>
+  </details>
+
+  <p class="footnote" id="note"></p>
+  <div class="exportbar">
+    <span class="cap">Export this page</span>
+    <button type="button" class="linkbtn" id="csv">CSV</button>
+    <button type="button" class="linkbtn" id="pdf">PDF</button>
+  </div>
+  <footer class="sources" id="sources"></footer>
+</div>
+
+<script>
+/* =====================================================================
+   Configuration
+   ===================================================================== */
+
+// One row per fund with a US Award allocation. pfid is OneGMS's PooledFundId;
+// code is PoolfundCodeAbbrv. Bangladesh sits inside the Asia-Pacific regional
+// envelope (AP501), which is why both keys are kept: the indicator extract is
+// requested by code and then narrowed by pfid.
+const FUNDS = [
+  { slug: "bangladesh",   name: "Bangladesh",                        pfid: 99,  code: "AP501" },
+  { slug: "car",          name: "Central African Republic",          pfid: 17,  code: "CAR17" },
+  { slug: "chad",         name: "Chad",                              pfid: 90,  code: "TCD90" },
+  { slug: "colombia",     name: "Colombia",                          pfid: 87,  code: "COL87" },
+  { slug: "drc",          name: "Democratic Republic of the Congo",  pfid: 24,  code: "DRC24" },
+  { slug: "el_salvador",  name: "El Salvador",                       pfid: 509, code: "SV509" },
+  { slug: "ethiopia",     name: "Ethiopia",                          pfid: 53,  code: "ETH53" },
+  { slug: "guatemala",    name: "Guatemala",                         pfid: 508, code: "GT508" },
+  { slug: "haiti",        name: "Haiti",                             pfid: 88,  code: "HTI88" },
+  { slug: "honduras",     name: "Honduras",                          pfid: 510, code: "HN510" },
+  { slug: "kenya",        name: "Kenya",                             pfid: 511, code: "KE511" },
+  { slug: "lebanon",      name: "Lebanon",                           pfid: 71,  code: "LBN71" },
+  { slug: "mozambique",   name: "Mozambique",                        pfid: 89,  code: "MOZ89" },
+  { slug: "myanmar",      name: "Myanmar",                           pfid: 59,  code: "MMR59" },
+  { slug: "nigeria",      name: "Nigeria",                           pfid: 75,  code: "NGA75" },
+  { slug: "south_sudan",  name: "South Sudan",                       pfid: 19,  code: "SSD19" },
+  { slug: "sudan",        name: "Sudan",                             pfid: 15,  code: "SUD15" },
+  { slug: "syria",        name: "Syria",                             pfid: 62,  code: "SYR62" },
+  { slug: "uganda",       name: "Uganda",                            pfid: 512, code: "UG512" },
+  { slug: "ukraine",      name: "Ukraine",                           pfid: 81,  code: "UKR81" },
+  { slug: "venezuela",    name: "Venezuela",                         pfid: 83,  code: "VEN83" },
+];
+const DEFAULT_SLUG = "haiti";
+const US_AWARD_YEAR = 2026;   // AllocationYear of every US Award round
+const US_AWARD_MARK = "NSFT"; // the token every US Award project code carries
+
+const API = "https://cbpfapi.unocha.org/vo3/odata";
+const EXTRACT = API + "/GlobalGenericDataExtract";
+const PERSON_UNITS = new Set(["Individuals", "People", "Persons"]);
+// OneGMS masks partner names on some funds by repeating the organisation type.
+const MASKED_PARTNER = new Set(["International NGO", "National NGO", "UN Agency", "Others", "Other"]);
+
+const URLS = {
+  indicators: f => `${EXTRACT}?SPCode=PF_GLB_INDIC&PoolfundCodeAbbrv=${f.code}&ShowAllPooledFunds=&AllocationYears=${US_AWARD_YEAR}&IndicatorTypeId=&FundTypeId=&$format=csv`,
+  detail:     f => `${EXTRACT}?SPCode=PF_PROJ_DETAIL&PoolfundCodeAbbrv=${f.code}&ShowAllPooledFunds=&AllocationYears=${US_AWARD_YEAR}&FundTypeId=1&$format=csv`,
+  summary:    f => `${API}/ProjectSummaryV2?$filter=${encodeURIComponent(`PFId eq ${f.pfid} and substringof('${US_AWARD_MARK}',PrjCode)`)}&$format=json`,
+  masterOut:  `${EXTRACT}?SPCode=GLB_INDIC_MST&PoolfundCodeAbbrv=SUD15&GlobalIndicatorType=1&$format=csv`,
+  masterOutc: `${EXTRACT}?SPCode=GLB_INDIC_MST&PoolfundCodeAbbrv=SUD15&GlobalIndicatorType=2&$format=csv`,
+  clusters:   `${API}/MstClusters?$format=json`,
+  modified:   `${API}/LastModified?$format=json`,
+};
+
+/* =====================================================================
+   Fetching and parsing
+   ===================================================================== */
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+// These endpoints occasionally truncate or answer a 500 with an HTML page, so
+// every fetch retries and checks the body's shape before trusting it.
+async function fetchText(url, { attempts = 3, timeout = 90000 } = {}) {
+  let last;
+  for (let i = 0; i < attempts; i++) {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), timeout);
+    try {
+      const res = await fetch(url, { signal: ctl.signal, cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const text = await res.text();
+      if (/^\s*</.test(text)) throw new Error("server returned an error page");
+      return text;
+    } catch (err) {
+      last = err;
+      await new Promise(r => setTimeout(r, 1200 * (i + 1)));
+    } finally { clearTimeout(t); }
+  }
+  throw last;
+}
+const fetchCsv = async url => parseCsv(await fetchText(url));
+const fetchJson = async url => JSON.parse(await fetchText(url)).value || [];
+
+function parseCsv(text) {
+  const rows = []; let row = [], field = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else q = false; }
+      else field += c;
+    } else if (c === '"') q = true;
+    else if (c === ",") { row.push(field); field = ""; }
+    else if (c === "\n") { row.push(field); rows.push(row); row = []; field = ""; }
+    else if (c !== "\r") field += c;
+  }
+  if (field !== "" || row.length) { row.push(field); rows.push(row); }
+  if (!rows.length) return [];
+  const head = rows.shift().map(h => h.replace(/^﻿/, "").trim());
+  return rows.filter(r => r.length > 1 || (r[0] ?? "") !== "")
+             .map(r => Object.fromEntries(head.map((h, i) => [h, (r[i] ?? "").trim()])));
+}
+
+const num = v => { if (v === null || v === undefined || v === "") return null; const n = Number(v); return Number.isFinite(n) ? n : null; };
+const has = v => v !== null && v !== undefined;
+
+/* =====================================================================
+   Reference data (fetched once per page load)
+   ===================================================================== */
+
+let REF = null;
+async function loadReference() {
+  if (REF) return REF;
+  const [out, outc, clusters, modified] = await Promise.all([
+    fetchCsv(URLS.masterOut), fetchCsv(URLS.masterOutc),
+    fetchJson(URLS.clusters).catch(() => []),
+    fetchJson(URLS.modified).catch(() => []),
+  ]);
+  const indicators = new Map();
+  for (const r of [...out, ...outc]) {
+    // Names arrive as "(Global) Ag.1 - Number of people..." or
+    // "(Global)  (FSC/C-CA4/Ag.1)  Number of people..."; keep the plain text.
+    const name = r.Name.replace(/^\(Global\)\s*/i, "")
+                       .replace(/^\([A-Z]+\/[^)]*\)\s*/, "")
+                       .replace(new RegExp("^" + r.Code.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*-\\s*"), "")
+                       .trim();
+    indicators.set(r.Id, {
+      id: r.Id, code: r.Code || "", name: name || r.Name, unit: r.UnitNm || "",
+      core: r.IsCore === "1", type: r.TypeId === "2" ? "outcome" : "output",
+      active: r.Active !== "0",
+    });
+  }
+  const clusterNames = new Map(clusters.map(c => [String(c.ClustId), c.ClustNm]));
+  REF = { indicators, clusterNames, modified: modified[0]?.last_updated_date || null };
+  return REF;
+}
+
+/* =====================================================================
+   Country model
+   ===================================================================== */
+
+const CACHE = new Map();
+
+function isUsAward(code, pfid, rowPfid) {
+  return String(code || "").includes(US_AWARD_MARK) && String(rowPfid) === String(pfid);
+}
+
+function splitAgg(s) {   // "12564##17081##17681##27059" -> [m, w, b, g]
+  const p = String(s || "").split("##").map(num);
+  return { m: p[0] ?? null, w: p[1] ?? null, b: p[2] ?? null, g: p[3] ?? null };
+}
+function totalOf(d) {
+  const vals = [d.m, d.w, d.b, d.g].filter(has);
+  return vals.length ? vals.reduce((a, b) => a + b, 0) : null;
+}
+const iso = s => { if (!s) return null; const d = new Date(s); return isNaN(d) ? null : d.toISOString().slice(0, 10); };
+
+async function loadCountry(fund) {
+  if (CACHE.has(fund.slug)) return CACHE.get(fund.slug);
+  const ref = await loadReference();
+  const [indRows, detRows, sumRows] = await Promise.all([
+    fetchCsv(URLS.indicators(fund)),
+    fetchCsv(URLS.detail(fund)).catch(err => { console.warn("PF_PROJ_DETAIL failed", err); return null; }),
+    fetchJson(URLS.summary(fund)).catch(err => { console.warn("ProjectSummaryV2 failed", err); return null; }),
+  ]);
+
+  const projects = new Map();
+  const project = code => {
+    if (!projects.has(code)) projects.set(code, {
+      code, partner: null, partnerType: null, title: null, status: null, statusCode: null,
+      allocation: null, budget: null, start: null, end: null, approved: null, risk: null,
+      targeted: { m: null, w: null, b: null, g: null }, reached: { m: null, w: null, b: null, g: null },
+      indicators: [], published: false,
+    });
+    return projects.get(code);
+  };
+
+  for (const r of sumRows || []) {
+    if (!isUsAward(r.PrjCode, fund.pfid, r.PFId)) continue;
+    const p = project(r.PrjCode);
+    p.published = true;
+    p.partner = r.OrgNm || null;
+    p.partnerType = ({ 1: "National NGO", 2: "International NGO", 3: "UN Agency", 4: "Other" })[r.OrgTypeId] || null;
+    p.title = r.PrjTitle || null;
+    p.status = r.PrjStsNm || null; p.statusCode = r.PrjStsCode || null;
+    p.allocation = r.AllNm || null;
+    p.budget = num(r.PrgBdg);
+    p.start = iso(r.AStrDt); p.end = iso(r.AEndDt); p.approved = iso(r.ApprDt);
+    p.targeted = splitAgg(r.BenAgg);
+  }
+  for (const r of detRows || []) {
+    if (!isUsAward(r.ChfProjectCode, fund.pfid, r.PooledFundId)) continue;
+    const p = project(r.ChfProjectCode);
+    p.published = true;
+    p.title = p.title || r.ProjectTitle || null;
+    p.budget = p.budget ?? num(r.Budget);
+    p.start = p.start || iso(r.ProjectStartDate); p.end = p.end || iso(r.ProjectEndDate);
+    p.approved = p.approved || iso(r.ApprovedDate);
+    p.risk = r.PartnerRisk || null;
+    if (!has(totalOf(p.targeted))) p.targeted = { m: num(r.BenM), w: num(r.BenW), b: num(r.BenB), g: num(r.BenG) };
+    p.reached = { m: num(r.AchM), w: num(r.AchW), b: num(r.AchB), g: num(r.AchG) };
+  }
+
+  const rows = [];
+  for (const r of indRows) {
+    if (!isUsAward(r.CHFProjectCode, fund.pfid, r.PooledFundId)) continue;
+    const p = project(r.CHFProjectCode);
+    const ind = ref.indicators.get(r.GlbIndicId) ||
+      { id: r.GlbIndicId, code: "", name: "Indicator " + r.GlbIndicId + " (not in the global indicator list)", unit: "", core: false, type: r.GlbIndicType === "2" ? "outcome" : "output" };
+    const row = {
+      project: p, ind, sectorId: r.GlbClstrId,
+      sector: ref.clusterNames.get(r.GlbClstrId) || (r.GlbClstrId ? "Sector " + r.GlbClstrId : "—"),
+      tgt: { m: num(r.TgtM), w: num(r.TgtW), b: num(r.TgtB), g: num(r.TgtG), total: num(r.TgtTotal) },
+      ach: { m: num(r.AchM), w: num(r.AchW), b: num(r.AchB), g: num(r.AchG), total: num(r.AchTotal) },
+    };
+    if (!has(row.tgt.total)) row.tgt.total = totalOf(row.tgt);
+    if (!has(row.ach.total)) row.ach.total = totalOf(row.ach);
+    row.reported = has(row.ach.total);
+    p.indicators.push(row);
+    rows.push(row);
+  }
+  for (const p of projects.values()) {
+    p.sectors = [...new Set(p.indicators.map(r => r.sector))].sort();
+    p.targetedTotal = totalOf(p.targeted);
+    p.reachedTotal = totalOf(p.reached);
+    p.reportedAny = has(p.reachedTotal) || p.indicators.some(r => r.reported);
+  }
+
+  const model = {
+    fund, projects: [...projects.values()], rows,
+    sectors: [...new Set(rows.map(r => r.sector))].sort(),
+    retrieved: new Date(), partial: { detail: !detRows, summary: !sumRows },
+  };
+  CACHE.set(fund.slug, model);
+  return model;
+}
+
+/* =====================================================================
+   Formatting
+   ===================================================================== */
+
+const fmtInt = n => has(n) ? Math.round(n).toLocaleString("en-US") : "—";
+function fmtVal(n, unit) {
+  if (!has(n)) return "—";
+  if (unit === "Percentage") return (Math.round(n * 10) / 10).toLocaleString("en-US") + "%";
+  return Number.isInteger(n) ? fmtInt(n) : n.toLocaleString("en-US", { maximumFractionDigits: 1 });
+}
+const MONEY_UNITS = [[1e9, "B"], [1e6, "M"], [1e3, "K"]];
+function usd(v) {
+  if (!has(v)) return "—";
+  if (v === 0) return "$0";
+  for (const [div, suf] of MONEY_UNITS) {
+    if (Math.abs(v) >= div) {
+      const s = v / div, d = s < 10 ? 2 : s < 100 ? 1 : 0;
+      return "$" + parseFloat(s.toFixed(d)).toLocaleString("en-US", { maximumFractionDigits: d }) + suf;
+    }
+  }
+  return "$" + Math.round(v).toLocaleString("en-US");
+}
+const usdExact = v => has(v) ? "$" + Math.round(v).toLocaleString("en-US") : "—";
+const pctOf = (a, b) => (has(a) && has(b) && b > 0) ? a / b : null;
+const pctText = p => has(p) ? Math.round(p * 100) + "%" : "—";
+function dateRange(a, b) {
+  if (!a && !b) return "—";
+  const d = s => new Date(s + "T00:00:00Z");
+  const day = s => d(s).getUTCDate();
+  const mon = s => d(s).toLocaleString("en", { month: "short", timeZone: "UTC" });
+  const yr = s => d(s).getUTCFullYear();
+  if (!a || !b) { const s = a || b; return `${day(s)} ${mon(s)} ${yr(s)}`; }
+  if (yr(a) === yr(b)) return `${day(a)} ${mon(a)} – ${day(b)} ${mon(b)} ${yr(b)}`;
+  return `${day(a)} ${mon(a)} ${yr(a)} – ${day(b)} ${mon(b)} ${yr(b)}`;
+}
+const plural = (n, one, many) => n === 1 ? one : (many || one + "s");
+
+function meter(a, b, { title } = {}) {
+  const p = pctOf(a, b);
+  if (!has(p)) return `<span class="pct" title="${esc(title || "")}">—</span>`;
+  const w = Math.min(100, Math.round(p * 100));
+  return `<div class="meter" title="${esc(title || "")}"><div class="track"><div class="fill${p >= 1 ? " full" : ""}" style="width:${w}%"></div></div><span class="pct">${pctText(p)}</span></div>`;
+}
+function partnerCell(p) {
+  if (!p.published) return `<span class="name">Project details not published</span>`;
+  if (!p.partner || MASKED_PARTNER.has(p.partner))
+    return `<span class="name" title="OneGMS does not publish partner names for this fund">Partner name not published</span>${p.partnerType ? ` <span class="pill">${esc(p.partnerType)}</span>` : ""}`;
+  return `<span class="name">${esc(p.partner)}</span>${p.partnerType ? ` <span class="pill">${esc(p.partnerType)}</span>` : ""}`;
+}
+
+/* =====================================================================
+   State, routing, controls
+   ===================================================================== */
+
+const S = {
+  slug: DEFAULT_SLUG, view: "projects", sector: "all", core: false, split: false, q: "",
+  pSort: { key: "partner", dir: 1 }, iSort: { key: "sector", dir: 1 }, open: null,
+};
+let MODEL = null;
+
+function route() {
+  const parts = (location.hash || "").replace(/^#/, "").split("/");
+  const fund = FUNDS.find(f => f.slug === parts[0]);
+  S.slug = fund ? fund.slug : DEFAULT_SLUG;
+  S.view = parts[1] === "indicators" ? "indicators" : "projects";
+  S.open = null;
+  syncControls();
+  show();
+}
+function setHash() { location.hash = "#" + S.slug + (S.view === "indicators" ? "/indicators" : ""); }
+
+function syncControls() {
+  $("country").value = S.slug;
+  $("core").checked = S.core;
+  $("split").checked = S.split;
+  $("q").value = S.q;
+  $("view").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === S.view)));
+}
+
+function banner(msg, kind, retry) {
+  const el = $("banner");
+  if (!msg) { el.hidden = true; el.innerHTML = ""; return; }
+  el.hidden = false; el.className = "banner " + (kind || "");
+  el.innerHTML = `<span>${esc(msg)}</span>` + (retry ? `<button type="button" class="linkbtn" id="retry">Retry</button>` : "");
+  if (retry) $("retry").addEventListener("click", retry);
+}
+
+async function show() {
+  const fund = FUNDS.find(f => f.slug === S.slug);
+  const seq = (show.seq = (show.seq || 0) + 1);
+  if (!CACHE.has(fund.slug)) {
+    MODEL = null;
+    banner(`Loading ${fund.name} from OneGMS…`, "info");
+    setControlsEnabled(false);
+    $("stats").innerHTML = "";
+    $("projects-table").querySelector("tbody").innerHTML = "";
+    $("indicators-table").querySelector("tbody").innerHTML = "";
+    $("projects-count").textContent = ""; $("indicators-count").textContent = "";
+  }
+  try {
+    const model = await loadCountry(fund);
+    if (seq !== show.seq) return;            // the user moved on while this loaded
+    MODEL = model;
+    banner(null);
+    if (model.partial.summary || model.partial.detail)
+      banner("OneGMS answered only part of this request: some project details (partner, title, budget or reach) are missing. Reload to try again.", "", () => { CACHE.delete(fund.slug); show(); });
+    setControlsEnabled(true);
+    if (!model.projects.length)
+      banner(`OneGMS publishes no US Award (NSFT) project data for ${fund.name} yet. Projects still under approval do not appear on the public API.`, "info");
+    buildSectorSelect();
+    render();
+  } catch (err) {
+    if (seq !== show.seq) return;
+    console.error(err);
+    setControlsEnabled(true);
+    banner(`Could not load ${fund.name} from OneGMS (${err.message}). The API may be slow or briefly unavailable.`, "error", () => { CACHE.delete(fund.slug); show(); });
+  }
+}
+function setControlsEnabled(on) {
+  ["sector", "core", "split", "q", "csv", "pdf"].forEach(id => { $(id).disabled = !on; });
+}
+
+function buildSectorSelect() {
+  const sel = $("sector");
+  const keep = MODEL.sectors.includes(S.sector) ? S.sector : "all";
+  S.sector = keep;
+  sel.innerHTML = `<option value="all">All sectors</option>` +
+    MODEL.sectors.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join("");
+  sel.value = keep;
+}
+
+/* =====================================================================
+   Filtering
+   ===================================================================== */
+
+function matchesQuery(p, r) {
+  if (!S.q) return true;
+  const q = S.q.toLowerCase();
+  const hay = [p.code, p.partner, p.title, r?.ind.code, r?.ind.name, r?.sector].filter(Boolean).join(" ").toLowerCase();
+  return hay.includes(q);
+}
+function rowPasses(r) {
+  if (S.sector !== "all" && r.sector !== S.sector) return false;
+  if (S.core && !r.ind.core) return false;
+  return true;
+}
+function visibleRows() { return MODEL.rows.filter(r => rowPasses(r) && matchesQuery(r.project, r)); }
+function visibleProjects() {
+  const filtering = S.sector !== "all" || S.core || S.q;
+  return MODEL.projects.filter(p => {
+    if (!filtering) return true;
+    if (p.indicators.some(r => rowPasses(r) && matchesQuery(p, r))) return true;
+    // a project with no indicator rows at all still shows when the query hits the project itself
+    return !p.indicators.length && S.sector === "all" && !S.core && matchesQuery(p, null);
+  });
+}
+function projectRows(p) { return p.indicators.filter(r => rowPasses(r) && matchesQuery(p, r)); }
+
+/* =====================================================================
+   Rendering
+   ===================================================================== */
+
+function render() {
+  if (!MODEL) return;
+  renderStats();
+  const projectsView = S.view === "projects";
+  $("sec-projects").hidden = !projectsView;
+  $("sec-indicators").hidden = projectsView;
+  if (projectsView) renderProjects(); else renderIndicators();
+  renderNote();
+  renderSources();
+}
+
+function renderStats() {
+  const ps = MODEL.projects.filter(p => p.published);
+  const budget = ps.reduce((a, p) => a + (p.budget || 0), 0);
+  const partners = new Set(ps.map(p => p.partner).filter(n => n && !MASKED_PARTNER.has(n)));
+  const indicators = new Set(MODEL.rows.map(r => r.ind.id));
+  const cells = [
+    { v: MODEL.projects.length, l: plural(MODEL.projects.length, "project"), title: "US Award (NSFT) projects with indicator or project data in OneGMS" },
+    { v: usd(budget), l: "allocated", title: `${usdExact(budget)} — sum of ${ps.length} published project budgets` },
+    ...(partners.size ? [{ v: partners.size, l: plural(partners.size, "partner") }] : []),
+    { v: indicators.size, l: plural(indicators.size, "indicator") },
+  ];
+  $("stats").innerHTML = cells.map(c =>
+    `<span class="lede"${c.title ? ` title="${esc(c.title)}"` : ""}><b>${esc(c.v)}</b> ${esc(c.l)}</span>`).join("");
+}
+
+/* ---- sortable header helpers ---- */
+function headerRow(el, cols, sort, onSort) {
+  el.innerHTML = cols.map(c =>
+    `<th data-col="${c.key}" class="${c.align || ""}${c.nosort ? " nosort" : ""}" scope="col"${c.w ? ` style="width:${c.w}"` : ""}>${esc(c.label)}${c.nosort ? "" : `<span class="arrow">▾</span>`}</th>`).join("");
+  el.querySelectorAll("th").forEach(th => {
+    const col = cols.find(c => c.key === th.dataset.col);
+    if (col.nosort) return;
+    th.addEventListener("click", () => onSort(th.dataset.col));
+  });
+  markSort(el, sort);
+}
+function setSort(sort, key) { sort.dir = key === sort.key ? -sort.dir : 1; sort.key = key; }
+function markSort(el, sort) {
+  el.querySelectorAll("th").forEach(th => {
+    const on = th.dataset.col === sort.key;
+    th.removeAttribute("aria-sort");
+    if (on) th.setAttribute("aria-sort", sort.dir === 1 ? "ascending" : "descending");
+    const arrow = th.querySelector(".arrow");
+    if (arrow) arrow.textContent = on && sort.dir === -1 ? "▴" : "▾";
+  });
+}
+function cmp(a, b, dir) {
+  const an = has(a) && a !== "", bn = has(b) && b !== "";
+  if (!an && !bn) return 0; if (!an) return 1; if (!bn) return -1;   // blanks always sink
+  if (typeof a === "number" && typeof b === "number") return (a - b) * dir;
+  return String(a).localeCompare(String(b), undefined, { sensitivity: "base", numeric: true }) * dir;
+}
+
+/* ---- disaggregation columns shared by both nested tables ---- */
+function splitHead(prefix) {
+  return S.split ? ["Men", "Women", "Boys", "Girls"].map(l => `<th class="num">${prefix} ${l}</th>`).join("") : "";
+}
+function splitCells(d, unit) {
+  return S.split ? ["m", "w", "b", "g"].map(k => `<td class="num">${fmtVal(d[k], unit)}</td>`).join("") : "";
+}
+
+/* ---- Projects view ---- */
+const P_COLS = [
+  { key: "partner",  label: "Project",          w: "36%" },
+  { key: "budget",   label: "Budget",           w: "9%",  align: "num" },
+  { key: "status",   label: "Status",           w: "10%" },
+  { key: "start",    label: "Period",           w: "13%" },
+  { key: "targeted", label: "Targeted",         w: "10%", align: "num" },
+  { key: "reached",  label: "Reached",          w: "10%", align: "num" },
+  { key: "coverage", label: "Progress",         w: "12%" },
+];
+
+function renderProjects() {
+  const table = $("projects-table");
+  headerRow(table.querySelector("thead tr"), P_COLS, S.pSort, key => { setSort(S.pSort, key); renderProjects(); });
+
+  const list = visibleProjects().map(p => ({ p, rows: projectRows(p) }));
+  const key = S.pSort.key, dir = S.pSort.dir;
+  const val = ({ p }) => ({
+    partner: p.partner && !MASKED_PARTNER.has(p.partner) ? p.partner : p.code,
+    budget: p.budget, status: p.status, start: p.start,
+    targeted: p.targetedTotal, reached: p.reachedTotal, coverage: pctOf(p.reachedTotal, p.targetedTotal),
+  })[key];
+  list.sort((a, b) => cmp(val(a), val(b), dir) || cmp(a.p.code, b.p.code, 1));
+
+  $("projects-count").textContent = list.length ? `· ${list.length} of ${MODEL.projects.length}` : "";
+  const tbody = table.querySelector("tbody");
+  if (!list.length) { tbody.innerHTML = `<tr><td colspan="${P_COLS.length}" class="empty">${MODEL.projects.length ? "No projects match these filters." : "No projects published yet."}</td></tr>`; return; }
+
+  tbody.innerHTML = list.map(({ p, rows }) => {
+    const open = S.open === p.code;
+    const reported = p.indicators.filter(r => r.reported).length;
+    const head = `
+      <tr class="row" data-code="${esc(p.code)}" tabindex="0" role="button" aria-expanded="${open}">
+        <td><span class="chev">›</span> ${partnerCell(p)}
+          <span class="title"><span class="code">${esc(p.code)}</span> · ${rows.length} ${plural(rows.length, "indicator")}${p.indicators.length ? `, ${reported} with results` : ""}</span></td>
+        <td class="num" title="${esc(usdExact(p.budget))}">${usd(p.budget)}</td>
+        <td class="small">${esc(p.status || "—")}</td>
+        <td class="small">${esc(dateRange(p.start, p.end))}</td>
+        <td class="num" title="People targeted by the project (men, women, boys, girls)">${fmtInt(p.targetedTotal)}</td>
+        <td class="num ink">${has(p.reachedTotal) ? fmtInt(p.reachedTotal) : `<span class="small">—</span>`}</td>
+        <td>${has(p.reachedTotal)
+              ? meter(p.reachedTotal, p.targetedTotal, { title: `${fmtInt(p.reachedTotal)} reached of ${fmtInt(p.targetedTotal)} targeted` })
+              : `<span class="small">Not yet reported</span>`}</td>
+      </tr>`;
+    if (!open) return head;
+    return head + `<tr class="detail"><td colspan="${P_COLS.length}"><div class="detail-inner">${projectDetail(p, rows)}</div></td></tr>`;
+  }).join("");
+
+  tbody.querySelectorAll("tr.row").forEach(tr => {
+    const toggle = () => { S.open = S.open === tr.dataset.code ? null : tr.dataset.code; renderProjects(); focusRow(tbody, tr.dataset.code); };
+    tr.addEventListener("click", toggle);
+    tr.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } });
+  });
+}
+function focusRow(tbody, code) { const el = tbody.querySelector(`tr.row[data-code="${CSS.escape(code)}"]`); if (el) el.focus({ preventScroll: true }); }
+
+function projectDetail(p, rows) {
+  const meta = [
+    p.title ? `<span><b>Title</b> ${esc(p.title)}</span>` : "",
+    p.allocation ? `<span><b>Allocation</b> ${esc(p.allocation)}</span>` : "",
+    p.approved ? `<span><b>Approved</b> ${esc(dateRange(p.approved, null))}</span>` : "",
+    p.risk ? `<span><b>Partner risk</b> ${esc(p.risk)}</span>` : "",
+    `<span><b>OneGMS</b> ${esc(p.code)}</span>`,
+  ].filter(Boolean).join(" · ");
+  if (!rows.length) return `<p class="small" style="margin:.2rem 0 .4rem">${meta}</p><div class="empty">No indicator rows${S.sector !== "all" || S.core || S.q ? " match these filters" : " published for this project yet"}.</div>`;
+  const sorted = [...rows].sort((a, b) => cmp(a.sector, b.sector, 1) || cmp(a.ind.code, b.ind.code, 1));
+  return `<p class="small" style="margin:.2rem 0 .6rem">${meta}</p>
+    <table class="nested"><thead><tr>
+      <th>Code</th><th>Indicator</th><th>Sector</th><th>Unit</th>${splitHead("Targeted")}<th class="num">Targeted</th>${splitHead("Reached")}<th class="num">Reached</th><th>Progress</th>
+    </tr></thead><tbody>${sorted.map(indicatorRow).join("")}</tbody></table>`;
+}
+function indicatorRow(r) {
+  const u = r.ind.unit;
+  return `<tr>
+    <td class="mono">${esc(r.ind.code || "—")}${r.ind.core ? ` <span class="pill core" title="US Award core indicator">core</span>` : ""}</td>
+    <td class="indname">${esc(r.ind.name)}${r.ind.type === "outcome" ? ` <span class="pill">outcome</span>` : ""}</td>
+    <td class="small">${esc(r.sector)}</td>
+    <td class="small">${esc(u || "—")}</td>
+    ${splitCells(r.tgt, u)}<td class="num ink">${fmtVal(r.tgt.total, u)}</td>
+    ${splitCells(r.ach, u)}<td class="num ink">${r.reported ? fmtVal(r.ach.total, u) : `<span class="small">—</span>`}</td>
+    <td>${r.reported ? meter(r.ach.total, r.tgt.total, { title: `${fmtVal(r.ach.total, u)} of ${fmtVal(r.tgt.total, u)}` }) : `<span class="small">Not yet reported</span>`}</td>
+  </tr>`;
+}
+
+/* ---- Indicators view ---- */
+const I_COLS = [
+  { key: "code",     label: "Code",       w: "8%" },
+  { key: "name",     label: "Indicator",  w: "36%" },
+  { key: "sector",   label: "Sector",     w: "13%" },
+  { key: "unit",     label: "Unit",       w: "8%" },
+  { key: "projects", label: "Projects",   w: "7%",  align: "num" },
+  { key: "tgt",      label: "Targeted",   w: "8%",  align: "num" },
+  { key: "ach",      label: "Reached",    w: "8%",  align: "num" },
+  { key: "pct",      label: "Progress",   w: "12%" },
+];
+
+// Percentage indicators are averaged across projects (summing them is
+// meaningless); everything else is summed. Same rule as the reporting pipeline.
+function aggregate(rows) {
+  const groups = new Map();
+  for (const r of rows) {
+    const key = r.ind.id + "|" + r.sectorId;
+    if (!groups.has(key)) groups.set(key, { ind: r.ind, sector: r.sector, sectorId: r.sectorId, rows: [] });
+    groups.get(key).rows.push(r);
+  }
+  const sumOrMean = (vals, pct) => {
+    const v = vals.filter(has); if (!v.length) return null;
+    const s = v.reduce((a, b) => a + b, 0); return pct ? s / v.length : s;
+  };
+  return [...groups.values()].map(g => {
+    const pct = g.ind.unit === "Percentage";
+    const agg = d => ({ m: sumOrMean(g.rows.map(r => r[d].m), pct), w: sumOrMean(g.rows.map(r => r[d].w), pct),
+                        b: sumOrMean(g.rows.map(r => r[d].b), pct), g: sumOrMean(g.rows.map(r => r[d].g), pct),
+                        total: sumOrMean(g.rows.map(r => r[d].total), pct) });
+    const reportedRows = g.rows.filter(r => r.reported);
+    return {
+      ...g, tgt: agg("tgt"),
+      ach: reportedRows.length ? { m: sumOrMean(reportedRows.map(r => r.ach.m), pct), w: sumOrMean(reportedRows.map(r => r.ach.w), pct),
+                                   b: sumOrMean(reportedRows.map(r => r.ach.b), pct), g: sumOrMean(reportedRows.map(r => r.ach.g), pct),
+                                   total: sumOrMean(reportedRows.map(r => r.ach.total), pct) }
+                                 : { m: null, w: null, b: null, g: null, total: null },
+      projects: new Set(g.rows.map(r => r.project.code)).size,
+      reporting: new Set(reportedRows.map(r => r.project.code)).size,
+      averaged: pct,
+    };
+  });
+}
+
+function renderIndicators() {
+  const table = $("indicators-table");
+  headerRow(table.querySelector("thead tr"), I_COLS, S.iSort, key => { setSort(S.iSort, key); renderIndicators(); });
+  const list = aggregate(visibleRows());
+  const key = S.iSort.key, dir = S.iSort.dir;
+  const val = g => ({ code: g.ind.code, name: g.ind.name, sector: g.sector, unit: g.ind.unit, projects: g.projects,
+                      tgt: g.tgt.total, ach: g.ach.total, pct: pctOf(g.ach.total, g.tgt.total) })[key];
+  list.sort((a, b) => cmp(val(a), val(b), dir) || cmp(a.sector, b.sector, 1) || cmp(a.ind.code, b.ind.code, 1));
+
+  $("indicators-count").textContent = list.length ? `· ${list.length}` : "";
+  const tbody = table.querySelector("tbody");
+  if (!list.length) { tbody.innerHTML = `<tr><td colspan="${I_COLS.length}" class="empty">${MODEL.rows.length ? "No indicators match these filters." : "No indicator rows published yet."}</td></tr>`; return; }
+
+  tbody.innerHTML = list.map(g => {
+    const id = g.ind.id + "|" + g.sectorId, open = S.open === id, u = g.ind.unit;
+    const head = `
+      <tr class="row" data-code="${esc(id)}" tabindex="0" role="button" aria-expanded="${open}">
+        <td class="mono"><span class="chev">›</span> ${esc(g.ind.code || "—")}${g.ind.core ? ` <span class="pill core" title="US Award core indicator">core</span>` : ""}</td>
+        <td><span class="name">${esc(g.ind.name)}</span>${g.ind.type === "outcome" ? ` <span class="pill">outcome</span>` : ""}${g.averaged ? ` <span class="pill" title="Percentage indicators are averaged across projects, not summed">avg</span>` : ""}</td>
+        <td class="small">${esc(g.sector)}</td>
+        <td class="small">${esc(u || "—")}</td>
+        <td class="num" title="${g.reporting} of ${g.projects} projects have reported on this indicator">${g.projects}</td>
+        <td class="num ink">${fmtVal(g.tgt.total, u)}</td>
+        <td class="num ink">${g.reporting ? fmtVal(g.ach.total, u) : `<span class="small">—</span>`}</td>
+        <td>${g.reporting ? meter(g.ach.total, g.tgt.total, { title: `${fmtVal(g.ach.total, u)} of ${fmtVal(g.tgt.total, u)} · ${g.reporting} of ${g.projects} projects reporting` }) : `<span class="small">Not yet reported</span>`}</td>
+      </tr>`;
+    if (!open) return head;
+    const rows = [...g.rows].sort((a, b) => cmp(a.project.partner, b.project.partner, 1) || cmp(a.project.code, b.project.code, 1));
+    return head + `<tr class="detail"><td colspan="${I_COLS.length}"><div class="detail-inner">
+      <table class="nested"><thead><tr><th>Project</th><th>Partner</th>${splitHead("Targeted")}<th class="num">Targeted</th>${splitHead("Reached")}<th class="num">Reached</th><th>Progress</th></tr></thead>
+      <tbody>${rows.map(r => `<tr>
+        <td class="mono">${esc(r.project.code)}</td>
+        <td>${partnerCell(r.project)}</td>
+        ${splitCells(r.tgt, u)}<td class="num ink">${fmtVal(r.tgt.total, u)}</td>
+        ${splitCells(r.ach, u)}<td class="num ink">${r.reported ? fmtVal(r.ach.total, u) : `<span class="small">—</span>`}</td>
+        <td>${r.reported ? meter(r.ach.total, r.tgt.total) : `<span class="small">Not yet reported</span>`}</td>
+      </tr>`).join("")}</tbody></table></div></td></tr>`;
+  }).join("");
+
+  tbody.querySelectorAll("tr.row").forEach(tr => {
+    const toggle = () => { S.open = S.open === tr.dataset.code ? null : tr.dataset.code; renderIndicators(); focusRow(tbody, tr.dataset.code); };
+    tr.addEventListener("click", toggle);
+    tr.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } });
+  });
+}
+
+/* ---- notes and sources ---- */
+function renderNote() {
+  const notes = [
+    "Figures are what partners have entered in OneGMS for US Award (NSFT) projects, as published on the public API at the time this page loaded. Reached figures appear only once a partner has submitted a report; blank means not yet reported, not zero.",
+    "Indicator totals are summed across projects. People counted under several indicators, or by several projects, are counted each time, so indicator totals are not deduplicated beneficiary counts.",
+    "Percentage indicators are averaged across projects rather than summed.",
+    "The project-level Targeted and Reached columns are the project's own beneficiary figures (men, women, boys and girls), separate from the indicator figures.",
+  ];
+  if (MODEL.projects.some(p => !p.published))
+    notes.push("Some projects appear in the indicator feed without a published project record, usually because they are still under approval. They show without partner, title or budget.");
+  if (MODEL.projects.some(p => p.partner && MASKED_PARTNER.has(p.partner)))
+    notes.push(`OneGMS does not publish partner names for ${MODEL.fund.name}; only the organisation type is shown.`);
+  $("note").innerHTML = notes.map(n => `<span>${esc(n)}</span>`).join("");
+}
+
+function renderSources() {
+  const f = MODEL.fund;
+  const rows = [
+    ["Indicators per project", "PF_GLB_INDIC extract: targets and achievements per project and global indicator.", URLS.indicators(f)],
+    ["Project summary", "ProjectSummaryV2: partner, title, status, budget, dates and targeted people.", URLS.summary(f)],
+    ["Project detail", "PF_PROJ_DETAIL extract: reached people and partner risk per project.", URLS.detail(f)],
+    ["Indicator list", "GLB_INDIC_MST: global indicator names, codes, units and the core flag.", URLS.masterOut],
+    ["Sectors", "MstClusters: global cluster names.", URLS.clusters],
+  ].map(([t, d, u]) => `<dt>${esc(t)}</dt><dd>${esc(d)}<a class="endpoint" href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a></dd>`).join("");
+  const mod = REF && REF.modified ? `OneGMS data last updated ${esc(REF.modified.replace("T", " ").slice(0, 16))} UTC. ` : "";
+  $("sources").innerHTML = `<span class="sources-title">Data sources</span><dl>${rows}</dl>` +
+    `<span class="access">${mod}Retrieved ${esc(MODEL.retrieved.toISOString().replace("T", " ").slice(0, 16))} UTC. Public endpoints, no credentials. Reload the page for fresh figures.</span>`;
+}
+
+/* =====================================================================
+   Export
+   ===================================================================== */
+
+function exportCsv() {
+  if (!MODEL) return;
+  const cols = ["Country", "Fund", "Project code", "Partner", "Partner type", "Project title", "Project status", "Allocation",
+    "Budget USD", "Project start", "Project end", "Sector", "Indicator code", "Indicator", "Core indicator", "Indicator type", "Unit",
+    "Targeted men", "Targeted women", "Targeted boys", "Targeted girls", "Targeted total",
+    "Reached men", "Reached women", "Reached boys", "Reached girls", "Reached total", "Progress"];
+  const rows = visibleRows().map(r => {
+    const p = r.project, pr = pctOf(r.ach.total, r.tgt.total);
+    return [MODEL.fund.name, MODEL.fund.code, p.code, p.partner && !MASKED_PARTNER.has(p.partner) ? p.partner : "", p.partnerType, p.title, p.status, p.allocation,
+      p.budget, p.start, p.end, r.sector, r.ind.code, r.ind.name, r.ind.core ? "Yes" : "No", r.ind.type, r.ind.unit,
+      r.tgt.m, r.tgt.w, r.tgt.b, r.tgt.g, r.tgt.total, r.ach.m, r.ach.w, r.ach.b, r.ach.g, r.ach.total, has(pr) ? Math.round(pr * 1000) / 10 : ""];
+  });
+  const cell = v => { const s = has(v) ? String(v) : ""; return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const text = [cols, ...rows].map(r => r.map(cell).join(",")).join("\r\n");
+  const blob = new Blob(["﻿" + text], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `onegms_indicators_${MODEL.fund.slug}_${MODEL.retrieved.toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+function exportPdf() {
+  if (!MODEL) return;
+  const prev = document.title, prevOpen = S.open;
+  document.title = `OneGMS reporting – ${MODEL.fund.name} – ${MODEL.retrieved.toISOString().slice(0, 10)}`;
+  S.open = null; render();
+  window.print();
+  document.title = prev; S.open = prevOpen; render();
+}
+
+/* =====================================================================
+   Boot
+   ===================================================================== */
+
+function measureChrome() {
+  const root = document.documentElement.style;
+  root.setProperty("--notice-h", $("notice").offsetHeight + "px");
+  root.setProperty("--header-h", document.querySelector("header").offsetHeight + "px");
+}
+
+function init() {
+  $("country").innerHTML = FUNDS.map(f => `<option value="${f.slug}">${esc(f.name)}</option>`).join("");
+  $("country").addEventListener("change", e => { S.slug = e.target.value; S.open = null; setHash(); });
+
+  $("view").innerHTML = [["projects", "By project"], ["indicators", "By indicator"]].map(([v, l]) =>
+    `<button type="button" data-v="${v}">${l}</button>`).join("");
+  $("view").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { S.view = b.dataset.v; S.open = null; setHash(); }));
+
+  $("sector").addEventListener("change", e => { S.sector = e.target.value; S.open = null; render(); });
+  $("core").addEventListener("change", e => { S.core = e.target.checked; render(); });
+  $("split").addEventListener("change", e => { S.split = e.target.checked; render(); });
+  let qTimer;
+  $("q").addEventListener("input", e => { clearTimeout(qTimer); qTimer = setTimeout(() => { S.q = e.target.value.trim(); render(); }, 150); });
+  $("csv").addEventListener("click", exportCsv);
+  $("pdf").addEventListener("click", exportPdf);
+
+  addEventListener("hashchange", route);
+  addEventListener("resize", measureChrome);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(measureChrome);
+  measureChrome();
+  setControlsEnabled(false);
+  route();
+}
+init();
+</script>
+</body>
+</html>
