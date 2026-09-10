@@ -38,6 +38,16 @@ projects still under approval, so this site uses `cbpfapi` and filters on the
 `NSFT` token in the project code plus the fund's `PooledFundId` (Bangladesh
 shares the `AP501` regional envelope with four other funds).
 
+## Overview charts
+
+Above the tables, an Overview section follows the current filters:
+
+- **Progress by sector**: one bar per sector. Bar length is the sector's people
+  targeted relative to the largest sector; the fill is the share reached. Only
+  person-count indicators (units Individuals, People, Persons) are added up.
+- **Core indicators**: one tile per US Award core indicator present in the
+  country, with reached against targeted and how many projects are reporting.
+
 ## How figures are combined
 
 - **By project**: each project's own targeted and reached people come from the
