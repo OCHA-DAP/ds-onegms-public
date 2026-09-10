@@ -195,31 +195,40 @@
   .dot.good { background: var(--good); }
   .dot.warning { background: var(--warning); }
 
-  /* ---- overview charts ---- */
-  .charts { display: flex; flex-direction: column; gap: 1.6rem; }
-  .chart h3 { margin: 0 0 .7rem; font-size: .85rem; font-weight: 500; color: var(--ink); }
-  .chart-sub { font-size: .76rem; font-weight: 400; color: var(--muted); margin-left: .4rem; }
+  /* ---- progress charts (modal) ---- */
+  .linkbtn.charts { font-size: .85rem; }
+  dialog#chart-modal { max-width: min(58rem, 94vw); width: 100%; border: 1px solid var(--line); border-radius: 4px;
+    background: var(--ground); color: var(--ink); padding: 1.25rem 1.5rem 1.4rem; box-shadow: 0 8px 32px rgb(0 0 0 / .18);
+    font-family: inherit; font-size: 14px; line-height: 1.5; }
+  dialog#chart-modal::backdrop { background: rgb(0 0 0 / .35); }
+  .modal-head { display: flex; align-items: baseline; gap: 1.5rem; margin-bottom: .3rem; flex-wrap: wrap; }
+  .modal-head h2 { margin: 0; font-size: 1rem; font-weight: 500; }
+  .modal-head .seg { padding-bottom: 0; }
+  .modal-head .close { margin-left: auto; font-size: 1.3rem; line-height: 1; color: var(--muted); }
+  .modal-head .close:hover { color: var(--ink); text-decoration: none; }
+  .chart-sub { margin: 0 0 1rem; font-size: .78rem; color: var(--muted); }
+  #chart-note { margin-top: 1.1rem; }
   .sectorbars { display: grid; grid-template-columns: minmax(9rem, 13rem) 1fr; gap: .55rem 1rem; align-items: center; }
-  .sectorbars .lbl { font-size: .85rem; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sectorbars.wide { grid-template-columns: minmax(12rem, 22rem) 1fr; }
+  .sectorbars .lbl { font-size: .85rem; color: var(--ink); min-width: 0; }
+  .sectorbars .lbl .t { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sectorbars.wide .lbl .t { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: .8rem; line-height: 1.35; }
   .sectorbars .lbl .n { display: block; font-size: .72rem; color: var(--muted); }
+  .sectorbars .lbl .n .code { margin-right: .3rem; }
   .sbar { display: flex; align-items: center; gap: .75rem; min-width: 0; }
   .sbar .strack { height: 9px; background: var(--track); border-radius: 2px; flex: none; }
   .sbar .sfill { height: 100%; border-radius: 2px; background: var(--ocha); }
   .sbar .sfill.full { background: var(--good); }
   .sbar .figs { font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .sbar .figs b { color: var(--ink); font-weight: 400; }
-  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: .6rem; }
-  .tile { border: 1px solid var(--line); border-radius: 3px; padding: .7rem .75rem; display: flex; flex-direction: column; gap: .38rem; min-width: 0; }
-  .tile .thead { display: flex; justify-content: space-between; gap: .5rem; align-items: baseline; }
-  .tile .tcode { font-family: var(--mono); font-size: .72rem; color: var(--muted); }
-  .tile .tsector { font-size: .66rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .tile .tname { font-size: .8rem; line-height: 1.35; color: var(--ink); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-  .tile .tfig { font-size: 1.05rem; color: var(--ink); font-variant-numeric: tabular-nums; margin-top: auto; }
-  .tile .tfig span { font-size: .78rem; color: var(--muted); }
-  .tile .track { max-width: none; }
-  .tile .tsub { font-size: .72rem; color: var(--muted); }
-  @media (max-width: 40rem) { .sectorbars { grid-template-columns: 1fr; gap: .2rem; } .sectorbars .sbar { margin-bottom: .5rem; } }
-  @media print { .tiles { grid-template-columns: repeat(3, 1fr); } .tile { break-inside: avoid; } }
+  .sectorbars .other { grid-column: 1 / -1; margin: -.2rem 0 .35rem; }
+  .sectorbars .other > .linkbtn { font-size: .74rem; color: var(--muted); }
+  .sectorbars .other > .linkbtn:hover { color: var(--ocha); text-decoration: none; }
+  .sectorbars .other > .linkbtn .chev { width: .6rem; font-size: .75rem; }
+  .sectorbars .other > .linkbtn[aria-expanded="true"] .chev { transform: rotate(90deg); color: var(--ocha); }
+  .sectorbars.sub { margin: .5rem 0 .3rem 1.4rem; padding: .5rem .75rem .5rem .9rem; border-left: 2px solid var(--line); gap: .45rem 1rem; }
+  .sectorbars.sub .strack { height: 6px; }
+  @media (max-width: 40rem) { .sectorbars, .sectorbars.wide { grid-template-columns: 1fr; gap: .2rem; } .sectorbars .sbar { margin-bottom: .5rem; } }
 
   /* ---- footers ---- */
   .footnote { margin: 0; display: flex; flex-direction: column; gap: .3rem; font-size: .76rem; color: var(--muted);
@@ -272,26 +281,11 @@
     <div class="checks">
       <label class="chk"><input type="checkbox" id="core"> Core indicators only</label>
       <label class="chk"><input type="checkbox" id="split"> Show men / women / boys / girls</label>
+      <button type="button" class="linkbtn charts" id="charts">Progress charts</button>
     </div>
   </div>
 
   <div id="banner" class="banner" hidden></div>
-
-  <details class="section" open id="sec-overview">
-    <summary><span class="chev">›</span> Overview</summary>
-    <div class="section-body">
-      <div class="charts">
-        <div class="chart">
-          <h3>Progress by sector <span class="chart-sub">people targeted and reached, person-count indicators only</span></h3>
-          <div class="sectorbars" id="sector-bars"></div>
-        </div>
-        <div class="chart" id="core-block">
-          <h3>Core indicators <span class="chart-sub">reached against targeted, all projects</span></h3>
-          <div class="tiles" id="core-tiles"></div>
-        </div>
-      </div>
-    </div>
-  </details>
 
   <details class="section" open id="sec-projects">
     <summary><span class="chev">›</span> Projects <span class="count" id="projects-count"></span></summary>
@@ -315,6 +309,17 @@
   </div>
   <footer class="sources" id="sources"></footer>
 </div>
+
+<dialog id="chart-modal" aria-labelledby="chart-title">
+  <div class="modal-head">
+    <h2 id="chart-title">Progress charts</h2>
+    <div class="seg" id="chart-mode" role="group" aria-label="Chart"></div>
+    <button type="button" class="linkbtn close" id="chart-close" aria-label="Close">×</button>
+  </div>
+  <p class="chart-sub" id="chart-caption"></p>
+  <div class="sectorbars" id="sector-bars"></div>
+  <p class="footnote" id="chart-note"></p>
+</dialog>
 
 <script>
 /* =====================================================================
@@ -607,7 +612,7 @@ function partnerCell(p) {
 
 const S = {
   slug: DEFAULT_SLUG, view: "projects", sector: "all", core: false, split: false, q: "",
-  pSort: { key: "partner", dir: 1 }, iSort: { key: "sector", dir: 1 }, open: null,
+  pSort: { key: "partner", dir: 1 }, iSort: { key: "sector", dir: 1 }, open: null, chartMode: "sector", chartOpen: new Set(),
 };
 let MODEL = null;
 
@@ -670,7 +675,7 @@ async function show() {
   }
 }
 function setControlsEnabled(on) {
-  ["sector", "core", "split", "q", "csv", "pdf"].forEach(id => { $(id).disabled = !on; });
+  ["sector", "core", "split", "q", "csv", "pdf", "charts"].forEach(id => { $(id).disabled = !on; });
 }
 
 function buildSectorSelect() {
@@ -719,7 +724,7 @@ function render() {
   const projectsView = S.view === "projects";
   $("sec-projects").hidden = !projectsView;
   $("sec-indicators").hidden = projectsView;
-  renderOverview();
+  if ($("chart-modal").open) renderCharts();
   if (projectsView) renderProjects(); else renderIndicators();
   renderNote();
   renderSources();
@@ -950,54 +955,88 @@ function renderIndicators() {
   });
 }
 
-/* ---- Overview charts ---- */
-function renderOverview() {
+/* ---- Progress charts (modal) ---- */
+// Two bar lists share one component. By sector: the track length is the
+// sector's people targeted relative to the largest sector and the fill is the
+// share reached (person-count units only). Core indicators: every bar has the
+// same track, since units differ from one indicator to the next.
+function renderCharts() {
   const rows = visibleRows();
+  const host = $("sector-bars");
+  const filtered = S.sector !== "all" || S.core || S.q;
+  const scope = filtered ? "with the current filters applied" : `for all ${MODEL.fund.name} US Award projects`;
 
-  // Sector bars: track length is the sector's target relative to the largest
-  // sector, fill is the share of that target reached. Person-count units only,
-  // so that kits, sites and percentages are not added to people.
+  if (S.chartMode === "core") {
+    host.classList.add("wide");
+    $("chart-caption").textContent = `US Award core indicators, reached against targeted, summed across projects ${scope}.`;
+    $("chart-note").innerHTML = `<span>Percentage indicators are averaged across projects rather than summed. Blank bars mean no project has reported on that indicator yet.</span>`;
+    const core = aggregate(rows.filter(r => r.ind.core)).sort((a, b) => cmp(a.sector, b.sector, 1) || cmp(a.ind.code, b.ind.code, 1));
+    host.innerHTML = !core.length ? `<div class="empty">No core indicators match these filters.</div>` : core.map(g => {
+      const u = g.ind.unit, p = pctOf(g.ach.total, g.tgt.total);
+      const unit = u && !PERSON_UNITS.has(u) && u !== "Percentage" ? " " + u.toLowerCase() : "";
+      return `<div class="lbl"><span class="t" title="${esc(g.ind.name)}">${esc(g.ind.name)}</span><span class="n"><span class="code">${esc(g.ind.code || "")}</span>${esc(g.sector)} · ${g.reporting} of ${g.projects} ${plural(g.projects, "project")} reporting</span></div>
+        <div class="sbar"><div class="strack" style="width:100%" title="${esc(fmtVal(g.ach.total, u))} of ${esc(fmtVal(g.tgt.total, u))}"><div class="sfill${has(p) && p >= 1 ? " full" : ""}" style="width:${g.reporting && has(p) ? Math.min(100, Math.round(p * 100)) : 0}%"></div></div>
+        <span class="figs"><b>${g.reporting ? fmtVal(g.ach.total, u) : "—"}</b> of ${fmtVal(g.tgt.total, u)}${esc(unit)}${g.averaged ? " (avg)" : ""} · <b>${g.reporting ? pctText(p) : "—"}</b></span></div>`;
+    }).join("");
+    return;
+  }
+
+  host.classList.remove("wide");
+  $("chart-caption").textContent = `People targeted and reached by sector ${scope}. Bar length is the sector's target relative to the largest sector; the fill is the share reached.`;
+  $("chart-note").innerHTML = `<span>Bars add up person-count indicators only (units Individuals, People, Persons). Indicators measured in households, kits, tonnes, sites or percentages cannot be added to people; open "other units" under a sector to see each in its own unit. Totals are not deduplicated across indicators or projects.</span>`;
   const bySector = new Map();
   for (const r of rows) {
-    if (!bySector.has(r.sector)) bySector.set(r.sector, { sector: r.sector, tgt: 0, ach: 0, anyTgt: false, projects: new Set(), reporting: new Set(), people: 0 });
+    if (!bySector.has(r.sector)) bySector.set(r.sector, { sector: r.sector, tgt: 0, ach: 0, projects: new Set(), reporting: new Set(), people: 0, other: [] });
     const g = bySector.get(r.sector);
     g.projects.add(r.project.code);
     if (r.reported) g.reporting.add(r.project.code);
-    if (!PERSON_UNITS.has(r.ind.unit)) continue;
+    if (!PERSON_UNITS.has(r.ind.unit)) { g.other.push(r); continue; }
     g.people++;
-    if (has(r.tgt.total)) { g.tgt += r.tgt.total; g.anyTgt = true; }
+    if (has(r.tgt.total)) g.tgt += r.tgt.total;
     if (r.reported && has(r.ach.total)) g.ach += r.ach.total;
   }
   const sectors = [...bySector.values()].sort((a, b) => b.tgt - a.tgt || cmp(a.sector, b.sector, 1));
   const maxTgt = Math.max(0, ...sectors.map(g => g.tgt));
-  $("sector-bars").innerHTML = !sectors.length
-    ? `<div class="empty">No indicator data to chart.</div>`
-    : sectors.map(g => {
-        const p = pctOf(g.ach, g.tgt);
-        const w = maxTgt ? Math.max(2, Math.round(g.tgt / maxTgt * 100)) : 0;
-        const bar = g.people
-          ? `<div class="strack" style="width:${w}%" title="${esc(fmtInt(g.ach))} reached of ${esc(fmtInt(g.tgt))} targeted"><div class="sfill${has(p) && p >= 1 ? " full" : ""}" style="width:${has(p) ? Math.min(100, Math.round(p * 100)) : 0}%"></div></div>
-             <span class="figs"><b>${fmtInt(g.ach)}</b> of ${fmtInt(g.tgt)} · <b>${pctText(p)}</b></span>`
-          : `<span class="figs">No person-count indicators</span>`;
-        return `<div class="lbl" title="${esc(g.sector)}">${esc(g.sector)}<span class="n">${g.reporting.size} of ${g.projects.size} ${plural(g.projects.size, "project")} reporting</span></div><div class="sbar">${bar}</div>`;
-      }).join("");
+  host.innerHTML = !sectors.length ? `<div class="empty">No indicator data to chart.</div>` : sectors.map(g => {
+    const p = pctOf(g.ach, g.tgt);
+    const w = maxTgt ? Math.max(2, Math.round(g.tgt / maxTgt * 100)) : 0;
+    const bar = g.people
+      ? `<div class="strack" style="width:${w}%" title="${esc(fmtInt(g.ach))} reached of ${esc(fmtInt(g.tgt))} targeted"><div class="sfill${has(p) && p >= 1 ? " full" : ""}" style="width:${has(p) ? Math.min(100, Math.round(p * 100)) : 0}%"></div></div>
+         <span class="figs"><b>${fmtInt(g.ach)}</b> of ${fmtInt(g.tgt)} · <b>${pctText(p)}</b></span>`
+      : `<span class="figs">No person-count indicators</span>`;
+    return `<div class="lbl"><span class="t" title="${esc(g.sector)}">${esc(g.sector)}</span><span class="n">${g.reporting.size} of ${g.projects.size} ${plural(g.projects.size, "project")} reporting</span></div><div class="sbar">${bar}</div>${otherUnits(g)}`;
+  }).join("");
+  host.querySelectorAll("button[data-sector]").forEach(b => b.addEventListener("click", () => {
+    const k = b.dataset.sector;
+    if (S.chartOpen.has(k)) S.chartOpen.delete(k); else S.chartOpen.add(k);
+    renderCharts();
+  }));
+}
 
-  // Core indicator tiles: the aggregated view restricted to core indicators.
-  const core = aggregate(rows.filter(r => r.ind.core))
-    .sort((a, b) => cmp(a.sector, b.sector, 1) || cmp(a.ind.code, b.ind.code, 1));
-  $("core-block").hidden = !core.length && !MODEL.rows.some(r => r.ind.core);
-  $("core-tiles").innerHTML = !core.length
-    ? `<div class="empty">No core indicators match these filters.</div>`
-    : core.map(g => {
-        const u = g.ind.unit, p = pctOf(g.ach.total, g.tgt.total);
-        return `<div class="tile">
-          <div class="thead"><span class="tcode">${esc(g.ind.code || "—")}</span><span class="tsector" title="${esc(g.sector)}">${esc(g.sector)}</span></div>
-          <div class="tname" title="${esc(g.ind.name)}">${esc(g.ind.name)}</div>
-          <div class="tfig">${g.reporting ? fmtVal(g.ach.total, u) : "—"} <span>of ${fmtVal(g.tgt.total, u)}${u && !PERSON_UNITS.has(u) && u !== "Percentage" ? " " + esc(u.toLowerCase()) : ""}${g.averaged ? " (avg)" : ""}</span></div>
-          ${g.reporting ? meter(g.ach.total, g.tgt.total, { title: `${fmtVal(g.ach.total, u)} of ${fmtVal(g.tgt.total, u)}` }) : `<span class="tsub">Not yet reported</span>`}
-          <div class="tsub">${g.reporting} of ${g.projects} ${plural(g.projects, "project")} reporting</div>
-        </div>`;
-      }).join("");
+// Indicators a sector reports in units other than people (households, kits,
+// metric tonnes, percentages...). They cannot be added to the people bar, so
+// each gets its own bar in its own unit, behind a toggle under the sector.
+function otherUnits(g) {
+  if (!g.other.length) return "";
+  const list = aggregate(g.other).sort((a, b) => b.projects - a.projects || (b.tgt.total || 0) - (a.tgt.total || 0));
+  const units = [...new Set(list.map(x => x.ind.unit || "no unit"))];
+  const open = S.chartOpen.has(g.sector);
+  const head = `<div class="other"><button type="button" class="linkbtn" data-sector="${esc(g.sector)}" aria-expanded="${open}"><span class="chev">›</span> ${list.length} ${plural(list.length, "indicator")} in other units (${esc(units.join(", "))})${g.people ? "" : " — this sector reports no people counts"}</button>`;
+  if (!open) return head + `</div>`;
+  return head + `<div class="sectorbars wide sub">` + list.map(x => {
+    const u = x.ind.unit, p = pctOf(x.ach.total, x.tgt.total);
+    const unit = u && u !== "Percentage" ? " " + u.toLowerCase() : "";
+    return `<div class="lbl"><span class="t" title="${esc(x.ind.name)}">${esc(x.ind.name)}</span><span class="n"><span class="code">${esc(x.ind.code || "")}</span>${x.reporting} of ${x.projects} ${plural(x.projects, "project")} reporting</span></div>
+      <div class="sbar"><div class="strack" style="width:100%" title="${esc(fmtVal(x.ach.total, u))} of ${esc(fmtVal(x.tgt.total, u))}"><div class="sfill${has(p) && p >= 1 ? " full" : ""}" style="width:${x.reporting && has(p) ? Math.min(100, Math.round(p * 100)) : 0}%"></div></div>
+      <span class="figs"><b>${x.reporting ? fmtVal(x.ach.total, u) : "—"}</b> of ${fmtVal(x.tgt.total, u)}${esc(unit)}${x.averaged ? " (avg)" : ""} · <b>${x.reporting ? pctText(p) : "—"}</b></span></div>`;
+  }).join("") + `</div></div>`;
+}
+
+function openCharts() {
+  if (!MODEL) return;
+  renderCharts();
+  const dlg = $("chart-modal");
+  if (!dlg.open) dlg.showModal();
 }
 
 /* ---- notes and sources ---- */
@@ -1006,7 +1045,6 @@ function renderNote() {
     "Figures are what partners have entered in OneGMS for US Award (NSFT) projects, as published on the public API at the time this page loaded. Reached figures appear only once a partner has submitted a report; blank means not yet reported, not zero.",
     "Indicator totals are summed across projects. People counted under several indicators, or by several projects, are counted each time, so indicator totals are not deduplicated beneficiary counts.",
     "Percentage indicators are averaged across projects rather than summed.",
-    "Progress by sector adds up person-count indicators only (units Individuals, People, Persons); indicators measured in kits, sites, households or percentages are left out of the bars but still counted in the project figures.",
     "The project-level Targeted and Reached columns are the project's own beneficiary figures (men, women, boys and girls), separate from the indicator figures.",
   ];
   if (MODEL.projects.some(p => !p.published))
@@ -1088,6 +1126,16 @@ function init() {
   $("split").addEventListener("change", e => { S.split = e.target.checked; render(); });
   let qTimer;
   $("q").addEventListener("input", e => { clearTimeout(qTimer); qTimer = setTimeout(() => { S.q = e.target.value.trim(); render(); }, 150); });
+  $("charts").addEventListener("click", openCharts);
+  $("chart-close").addEventListener("click", () => $("chart-modal").close());
+  $("chart-modal").addEventListener("click", e => { if (e.target === $("chart-modal")) $("chart-modal").close(); });
+  $("chart-mode").innerHTML = [["sector", "By sector"], ["core", "Core indicators"]].map(([v, l]) =>
+    `<button type="button" data-v="${v}" aria-pressed="${String(v === S.chartMode)}">${l}</button>`).join("");
+  $("chart-mode").querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+    S.chartMode = b.dataset.v;
+    $("chart-mode").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.v === S.chartMode)));
+    renderCharts();
+  }));
   $("csv").addEventListener("click", exportCsv);
   $("pdf").addEventListener("click", exportPdf);
 
