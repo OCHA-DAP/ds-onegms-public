@@ -664,8 +664,8 @@ function meter(a, b, { title } = {}) {
 function partnerCell(p) {
   if (!p.published) return `<span class="name">Project details not published</span>`;
   if (!p.partner || MASKED_PARTNER.has(p.partner))
-    return `<span class="name" title="OneGMS does not publish partner names for this fund">Partner name not published</span>${p.partnerType ? ` <span class="pill">${esc(p.partnerType)}</span>` : ""}`;
-  return `<span class="name">${esc(p.partner)}</span>${p.partnerType ? ` <span class="pill">${esc(p.partnerType)}</span>` : ""}`;
+    return `<span class="name" title="OneGMS does not publish partner names for this fund${p.partnerType ? " (" + esc(p.partnerType) + ")" : ""}">Partner name not published</span>`;
+  return `<span class="name"${p.partnerType ? ` title="${esc(p.partnerType)}"` : ""}>${esc(p.partner)}</span>`;
 }
 
 /* =====================================================================
