@@ -209,12 +209,13 @@
   .modal-head .close { margin-left: auto; font-size: 1.3rem; line-height: 1; color: var(--muted); }
   .modal-head .close:hover { color: var(--ink); text-decoration: none; }
   .chart-sub { margin: 0 0 1rem; font-size: .78rem; color: var(--muted); }
-  #chart-note { margin-top: 1.1rem; }
-  .sectorbars { display: grid; grid-template-columns: minmax(9rem, 13rem) 1fr; gap: .55rem 1rem; align-items: center; }
+  #chart-note { margin-top: 1rem; font-size: .72rem; }
+  .modal-head { margin-bottom: .9rem; }
+  .sectorbars { display: grid; grid-template-columns: minmax(9rem, 13rem) 1fr; gap: .45rem 1rem; align-items: center; }
   .sectorbars.wide { grid-template-columns: minmax(12rem, 22rem) 1fr; }
   .sectorbars .lbl { font-size: .85rem; color: var(--ink); min-width: 0; }
   .sectorbars .lbl .t { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .sectorbars.wide .lbl .t { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: .8rem; line-height: 1.35; }
+  .sectorbars.wide .lbl .t { font-size: .8rem; }
   .sectorbars .lbl .n { display: block; font-size: .72rem; color: var(--muted); }
   .sectorbars .lbl .n .code { margin-right: .3rem; }
   .sbar { display: flex; align-items: center; gap: .75rem; min-width: 0; }
@@ -222,10 +223,12 @@
   .sbar .strack { height: 9px; background: var(--track); border-radius: 2px; }
   .sbar .sfill { height: 100%; border-radius: 2px; background: var(--ocha); }
   .sbar .sfill.full { background: var(--good); }
-  .sbar .figs { flex: none; width: 12rem; font-size: .76rem; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .sbar .figs b { color: var(--ink); font-weight: 400; }
-  .sectorbars .other { grid-column: 1 / -1; margin: -.2rem 0 .35rem; }
-  .sectorbars .other > .linkbtn { font-size: .74rem; color: var(--muted); }
+  .sbar .figs { flex: none; width: 9.5rem; font-size: .78rem; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sbar .figs b { color: var(--ink); font-weight: 500; display: inline-block; min-width: 2.6rem; }
+  .sbar .figs .pair { font-size: .72rem; }
+  .sbar .figs.muted { font-size: .74rem; }
+  .sectorbars .other { grid-column: 1 / -1; margin: -.3rem 0 .2rem; }
+  .sectorbars .other > .linkbtn { font-size: .72rem; color: var(--muted); }
   .sectorbars .other > .linkbtn:hover { color: var(--ocha); text-decoration: none; }
   .sectorbars .other > .linkbtn .chev { width: .6rem; font-size: .75rem; }
   .sectorbars .other > .linkbtn[aria-expanded="true"] .chev { transform: rotate(90deg); color: var(--ocha); }
@@ -367,7 +370,6 @@
     <div class="seg" id="chart-mode" role="group" aria-label="Chart"></div>
     <button type="button" class="linkbtn close" id="chart-close" aria-label="Close">×</button>
   </div>
-  <p class="chart-sub" id="chart-caption"></p>
   <div class="sectorbars" id="sector-bars"></div>
   <p class="footnote" id="chart-note"></p>
 </dialog>
@@ -630,6 +632,15 @@ function usd(v) {
   return "$" + Math.round(v).toLocaleString("en-US");
 }
 const usdExact = v => has(v) ? "$" + Math.round(v).toLocaleString("en-US") : "—";
+// Same tiers as usd() without the sign, for bar labels that must stay short.
+function fmtCompact(v, unit) {
+  if (!has(v)) return "—";
+  if (unit === "Percentage") return fmtVal(v, unit);
+  for (const [div, suf] of MONEY_UNITS) {
+    if (Math.abs(v) >= div) { const x = v / div, d = x < 10 ? 1 : 0; return parseFloat(x.toFixed(d)).toLocaleString("en-US", { maximumFractionDigits: d }) + suf; }
+  }
+  return fmtVal(v, unit);
+}
 const pctOf = (a, b) => (has(a) && has(b) && b > 0) ? a / b : null;
 const pctText = p => has(p) ? Math.round(p * 100) + "%" : "—";
 function dateRange(a, b) {
@@ -1023,34 +1034,37 @@ function renderIndicators() {
 }
 
 /* ---- Progress charts (modal) ---- */
-// Two bar lists share one component. By sector: the track length is the
-// sector's people targeted relative to the largest sector and the fill is the
-// share reached (person-count units only). Core indicators: every bar has the
-// same track, since units differ from one indicator to the next.
+// One compact bar component for every list: label on the left, bar, then the
+// share reached in bold and the reached/targeted pair in short form. Detail
+// (exact figures, projects reporting) lives in the hover title.
+function bar(label, ach, tgt, unit, { width = 100, reported = true, sub = "", title = "" } = {}) {
+  const p = pctOf(ach, tgt);
+  const pct = reported && has(p) ? pctText(p) : "—";
+  const pair = `${reported ? fmtCompact(ach, unit) : "—"} / ${fmtCompact(tgt, unit)}${unit && !PERSON_UNITS.has(unit) && unit !== "Percentage" ? " " + esc(unit.toLowerCase()) : ""}`;
+  return `<div class="lbl" title="${esc(title)}"><span class="t">${esc(label)}</span>${sub ? `<span class="n">${sub}</span>` : ""}</div>
+    <div class="sbar" title="${esc(title)}"><div class="bars"><div class="strack" style="width:${width}%"><div class="sfill${has(p) && p >= 1 ? " full" : ""}" style="width:${reported && has(p) ? Math.min(100, Math.round(p * 100)) : 0}%"></div></div></div>
+    <span class="figs"><b>${pct}</b> <span class="pair">${pair}</span></span></div>`;
+}
+
 function renderCharts() {
   const rows = visibleRows();
   const host = $("sector-bars");
-  const filtered = S.sector !== "all" || S.core || S.q;
-  const scope = filtered ? "with the current filters applied" : `for all ${MODEL.fund.name} US Award projects`;
+  $("chart-note").innerHTML = S.chartMode === "core"
+    ? `<span>Reached / targeted, summed across projects. Percentages averaged. Not deduplicated.</span>`
+    : `<span>People reached / targeted per sector. Person-count indicators only. Not deduplicated.</span>`;
 
   if (S.chartMode === "core") {
     host.classList.add("wide");
-    $("chart-caption").textContent = `US Award core indicators, reached against targeted, summed across projects ${scope}.`;
-    $("chart-note").innerHTML = `<span>Percentage indicators are averaged across projects rather than summed. Blank bars mean no project has reported on that indicator yet.</span>`;
     const core = aggregate(rows.filter(r => r.ind.core)).sort((a, b) => cmp(a.sector, b.sector, 1) || cmp(a.ind.code, b.ind.code, 1));
-    host.innerHTML = !core.length ? `<div class="empty">No core indicators match these filters.</div>` : core.map(g => {
-      const u = g.ind.unit, p = pctOf(g.ach.total, g.tgt.total);
-      const unit = u && !PERSON_UNITS.has(u) && u !== "Percentage" ? " " + u.toLowerCase() : "";
-      return `<div class="lbl"><span class="t" title="${esc(g.ind.name)}">${esc(g.ind.name)}</span><span class="n"><span class="code">${esc(g.ind.code || "")}</span>${esc(g.sector)} · ${g.reporting} of ${g.projects} ${plural(g.projects, "project")} reporting</span></div>
-        <div class="sbar"><div class="bars"><div class="strack" style="width:100%" title="${esc(fmtVal(g.ach.total, u))} of ${esc(fmtVal(g.tgt.total, u))}"><div class="sfill${has(p) && p >= 1 ? " full" : ""}" style="width:${g.reporting && has(p) ? Math.min(100, Math.round(p * 100)) : 0}%"></div></div></div>
-        <span class="figs"><b>${g.reporting ? fmtVal(g.ach.total, u) : "—"}</b> of ${fmtVal(g.tgt.total, u)}${esc(unit)}${g.averaged ? " (avg)" : ""} · <b>${g.reporting ? pctText(p) : "—"}</b></span></div>`;
-    }).join("");
+    host.innerHTML = !core.length ? `<div class="empty">No core indicators match these filters.</div>` : core.map(g =>
+      bar(`${g.ind.code ? g.ind.code + "  " : ""}${g.ind.name}`, g.ach.total, g.tgt.total, g.ind.unit, {
+        reported: g.reporting > 0,
+        title: `${g.ind.name}\n${g.sector} · ${g.reporting} of ${g.projects} ${plural(g.projects, "project")} reporting\n${fmtVal(g.ach.total, g.ind.unit)} reached of ${fmtVal(g.tgt.total, g.ind.unit)} targeted${g.averaged ? " (average across projects)" : ""}`,
+      })).join("");
     return;
   }
 
   host.classList.remove("wide");
-  $("chart-caption").textContent = `People targeted and reached by sector ${scope}. Bar length is the sector's target relative to the largest sector; the fill is the share reached.`;
-  $("chart-note").innerHTML = `<span>Bars add up person-count indicators only (units Individuals, People, Persons). Indicators measured in households, kits, tonnes, sites or percentages cannot be added to people; open "other units" under a sector to see each in its own unit. Totals are not deduplicated across indicators or projects.</span>`;
   const bySector = new Map();
   for (const r of rows) {
     if (!bySector.has(r.sector)) bySector.set(r.sector, { sector: r.sector, tgt: 0, ach: 0, projects: new Set(), reporting: new Set(), people: 0, other: [] });
@@ -1065,13 +1079,11 @@ function renderCharts() {
   const sectors = [...bySector.values()].sort((a, b) => b.tgt - a.tgt || cmp(a.sector, b.sector, 1));
   const maxTgt = Math.max(0, ...sectors.map(g => g.tgt));
   host.innerHTML = !sectors.length ? `<div class="empty">No indicator data to chart.</div>` : sectors.map(g => {
-    const p = pctOf(g.ach, g.tgt);
-    const w = maxTgt ? Math.max(2, Math.round(g.tgt / maxTgt * 100)) : 0;
-    const bar = g.people
-      ? `<div class="bars"><div class="strack" style="width:${w}%" title="${esc(fmtInt(g.ach))} reached of ${esc(fmtInt(g.tgt))} targeted"><div class="sfill${has(p) && p >= 1 ? " full" : ""}" style="width:${has(p) ? Math.min(100, Math.round(p * 100)) : 0}%"></div></div></div>
-         <span class="figs"><b>${fmtInt(g.ach)}</b> of ${fmtInt(g.tgt)} · <b>${pctText(p)}</b></span>`
-      : `<span class="figs">No person-count indicators</span>`;
-    return `<div class="lbl"><span class="t" title="${esc(g.sector)}">${esc(g.sector)}</span><span class="n">${g.reporting.size} of ${g.projects.size} ${plural(g.projects.size, "project")} reporting</span></div><div class="sbar">${bar}</div>${otherUnits(g)}`;
+    const title = `${g.sector}\n${g.reporting.size} of ${g.projects.size} ${plural(g.projects.size, "project")} reporting\n${fmtInt(g.ach)} reached of ${fmtInt(g.tgt)} targeted`;
+    const main = g.people
+      ? bar(g.sector, g.ach, g.tgt, "People", { width: maxTgt ? Math.max(2, Math.round(g.tgt / maxTgt * 100)) : 0, title })
+      : `<div class="lbl" title="${esc(title)}"><span class="t">${esc(g.sector)}</span></div><div class="sbar"><span class="figs muted">No people counts</span></div>`;
+    return main + otherUnits(g);
   }).join("");
   host.querySelectorAll("button[data-sector]").forEach(b => b.addEventListener("click", () => {
     const k = b.dataset.sector;
@@ -1080,23 +1092,19 @@ function renderCharts() {
   }));
 }
 
-// Indicators a sector reports in units other than people (households, kits,
-// metric tonnes, percentages...). They cannot be added to the people bar, so
-// each gets its own bar in its own unit, behind a toggle under the sector.
+// Indicators a sector reports in units other than people. They cannot be added
+// to the people bar, so each gets its own bar in its own unit, behind a toggle.
 function otherUnits(g) {
   if (!g.other.length) return "";
   const list = aggregate(g.other).sort((a, b) => b.projects - a.projects || (b.tgt.total || 0) - (a.tgt.total || 0));
-  const units = [...new Set(list.map(x => x.ind.unit || "no unit"))];
   const open = S.chartOpen.has(g.sector);
-  const head = `<div class="other"><button type="button" class="linkbtn" data-sector="${esc(g.sector)}" aria-expanded="${open}"><span class="chev">›</span> ${list.length} ${plural(list.length, "indicator")} in other units (${esc(units.join(", "))})${g.people ? "" : " — this sector reports no people counts"}</button>`;
+  const head = `<div class="other"><button type="button" class="linkbtn" data-sector="${esc(g.sector)}" aria-expanded="${open}"><span class="chev">›</span> ${list.length} more in other units</button>`;
   if (!open) return head + `</div>`;
-  return head + `<div class="sectorbars wide sub">` + list.map(x => {
-    const u = x.ind.unit, p = pctOf(x.ach.total, x.tgt.total);
-    const unit = u && u !== "Percentage" ? " " + u.toLowerCase() : "";
-    return `<div class="lbl"><span class="t" title="${esc(x.ind.name)}">${esc(x.ind.name)}</span><span class="n"><span class="code">${esc(x.ind.code || "")}</span>${x.reporting} of ${x.projects} ${plural(x.projects, "project")} reporting</span></div>
-      <div class="sbar"><div class="bars"><div class="strack" style="width:100%" title="${esc(fmtVal(x.ach.total, u))} of ${esc(fmtVal(x.tgt.total, u))}"><div class="sfill${has(p) && p >= 1 ? " full" : ""}" style="width:${x.reporting && has(p) ? Math.min(100, Math.round(p * 100)) : 0}%"></div></div></div>
-      <span class="figs"><b>${x.reporting ? fmtVal(x.ach.total, u) : "—"}</b> of ${fmtVal(x.tgt.total, u)}${esc(unit)}${x.averaged ? " (avg)" : ""} · <b>${x.reporting ? pctText(p) : "—"}</b></span></div>`;
-  }).join("") + `</div></div>`;
+  return head + `<div class="sectorbars wide sub">` + list.map(x =>
+    bar(`${x.ind.code ? x.ind.code + "  " : ""}${x.ind.name}`, x.ach.total, x.tgt.total, x.ind.unit, {
+      reported: x.reporting > 0,
+      title: `${x.ind.name}\n${x.reporting} of ${x.projects} ${plural(x.projects, "project")} reporting\n${fmtVal(x.ach.total, x.ind.unit)} of ${fmtVal(x.tgt.total, x.ind.unit)}${x.averaged ? " (average across projects)" : ""}`,
+    })).join("") + `</div></div>`;
 }
 
 function openCharts() {
